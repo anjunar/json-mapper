@@ -1,15 +1,89 @@
 # json-mapper
 
-`json-mapper` is a Scala 3 library for serializing and deserializing object graphs to and from JSON.
+A JSON mapping library focused on object graphs, in-place deserialization, and structured domain binding.
 
-It is designed for applications that need more than plain JSON conversion:
+`json-mapper` is a Scala 3 library for serializing and deserializing object graphs to and from JSON. It is designed for applications that need more than plain JSON conversion, especially when JSON needs to be merged into existing domain objects instead of creating fresh instances every time.
 
-- object graph aware serialization
+## Why This Library?
+
+Most JSON libraries such as Jackson or circe focus on:
+
+- simple serialization and deserialization
+- stateless mapping
+
+They are great fits for many workloads, but they tend to be less ergonomic when your application depends on:
+
+- existing object graphs
+- partial updates
+- domain-driven models
+
+`json-mapper` is designed for:
+
+- updating existing objects
+- mapping complex graphs
+- integrating with domain logic
+
+## Installation
+
+Add the library to your `build.sbt`:
+
+```scala
+libraryDependencies += "com.anjunar" %% "json-mapper" % "1.0.0"
+```
+
+## Example
+
+At its core, the library is built around updating an existing object graph:
+
+```scala
+mapper.deserialize(json, existingObject)
+```
+
+## Key Features
+
 - in-place deserialization into existing instances
-- support for nested DTOs, collections, maps, UUIDs, locales, and temporal types
+- support for nested object graphs
+- collection handling
+- validation integration with aggregated error reporting
+- custom converters
+- support for nested DTOs, maps, UUIDs, locales, and temporal types
 - optional integration with `EntityGraph`
-- validation-aware deserialization with aggregated error reporting
-- converter hooks for custom JSON representations
+
+## Core Idea
+
+Instead of creating new objects every time, `json-mapper` merges JSON into existing domain objects.
+
+This enables:
+
+- persistence integration
+- domain consistency
+- efficient updates
+
+## Use Cases
+
+- REST backends with entity graphs
+- domain-driven applications
+- partial updates with PATCH-like behavior
+- UI to backend synchronization
+
+## When Should You Use It?
+
+Use it if:
+
+- you work with existing domain objects
+- you need graph updates instead of full replacement
+- you build stateful backend systems
+
+Avoid it if:
+
+- you only need simple JSON parsing
+- immutability is your primary design principle
+
+## Positioning
+
+- vs Jackson: better graph handling for existing instances and update-heavy flows
+- vs circe or zio-json: not purely functional, but often more practical for stateful systems
+- vs ORM mappers: focused on JSON mapping, not persistence
 
 ## Build
 
