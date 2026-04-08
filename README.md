@@ -94,6 +94,46 @@ sbt compile
 sbt test
 ```
 
+## Publish To Maven Central
+
+This project is configured for publishing through the Sonatype Central Portal.
+
+Before publishing, make sure you have:
+
+- a verified Sonatype namespace for `com.anjunar`
+- a Sonatype Central user token configured locally
+- a public GPG key uploaded to a public keyserver
+- `gpg` installed, or `GPG_COMMAND` pointing to your `gpg` executable
+
+Local credentials can be configured in `~/.sbt/1.0/credentials.sbt`:
+
+```scala
+credentials += Credentials(Path.userHome / ".sbt" / "sonatype_central_credentials")
+```
+
+And in `~/.sbt/sonatype_central_credentials`:
+
+```text
+host=central.sonatype.com
+user=<sonatype-user>
+password=<sonatype-token>
+```
+
+Release flow:
+
+```bash
+sbt publishSigned
+sbt sonaUpload
+sbt sonaRelease
+```
+
+Notes:
+
+- Releases are staged locally first and then uploaded to the Central Portal.
+- Snapshot versions publish to `https://central.sonatype.com/repository/maven-snapshots/`.
+- On Windows, the build automatically falls back to `C:/Program Files/GnuPG/bin/gpg.exe` if it exists, so no wrapper script is needed.
+- This is a single-module build, so `publish / skip := true` is intentionally not set on the root project.
+
 The current project settings are defined in `build.sbt`:
 
 - Scala: `3.8.3`
