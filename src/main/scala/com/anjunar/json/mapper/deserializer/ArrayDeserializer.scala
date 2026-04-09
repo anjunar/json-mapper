@@ -24,7 +24,8 @@ class ArrayDeserializer extends Deserializer[java.util.Collection[?]] {
         var index = 0
         val iterator = array.value.iterator()
         while (iterator.hasNext) {
-          iterator.next() match {
+          val elementNode = iterator.next()
+          elementNode match {
             case node: JsonObject =>
               val entityCollection = context.instance.asInstanceOf[java.util.Collection[EntityProvider]]
               val idNode = node.value.get("id")
@@ -65,7 +66,37 @@ class ArrayDeserializer extends Deserializer[java.util.Collection[?]] {
 
               collection.add(deserialized)
             case _ =>
-              throw new IllegalArgumentException("json array must contain a json object")
+              val elementInstance =
+                if (classOf[EntityProvider].isAssignableFrom(elementResolvedClass.raw)) {
+                  null
+                } else {
+                  val existingIterator = context.instance.asInstanceOf[java.util.Collection[Any]].iterator()
+                  var currentIndex = 0
+                  var currentValue: Any = null
+                  while (existingIterator.hasNext && currentIndex <= index) {
+                    currentValue = existingIterator.next()
+                    currentIndex += 1
+                  }
+                  if (currentIndex == index + 1) currentValue else null
+                }
+
+              val jsonContext = new JsonContext(
+                elementResolvedClass,
+                elementInstance,
+                context.graph,
+                context.loader,
+                context.validator,
+                context.inject,
+                context,
+                context.name,
+                index
+              )
+
+              val deserialized = DeserializerRegistry
+                .findDeserializer(elementResolvedClass.raw.asInstanceOf[Class[Any]], elementNode)
+                .deserialize(elementNode, jsonContext)
+
+              collection.add(deserialized)
           }
 
           index += 1
