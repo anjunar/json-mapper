@@ -1,6 +1,6 @@
 package com.anjunar.json.mapper.serializers
 
-import com.anjunar.json.mapper.annotations.{JsonLdId, JsonLdProperty, JsonLdType, JsonLdVocab, UseConverter}
+import com.anjunar.json.mapper.annotations.{JsonLdId, JsonLdProperty, JsonLdResource, JsonLdType, JsonLdVocab, UseConverter}
 import com.anjunar.json.mapper.provider.EntityProvider
 import com.anjunar.json.mapper.schema.{EntitySchema, SchemaProvider, VisibilityRule}
 import com.anjunar.json.mapper.{JavaContext, ObjectMapperProvider}
@@ -177,7 +177,7 @@ class BeanSerializer extends Serializer[Any] {
     }
 
     resolveJsonLdId(input, properties, schemaProvider, json)
-      .foreach(value => json.value.putIfAbsent("@id", new JsonString(value)))
+      .foreach(value => json.value.put("@id", new JsonString(value)))
   }
 
   private def buildJsonLdContext(
@@ -216,7 +216,9 @@ class BeanSerializer extends Serializer[Any] {
     properties: Array[AnnotationProperty],
     schemaProvider: SchemaProvider[EntitySchema[Any]],
     json: JsonObject
-  ): Option[String] =
+  ): Option[String] = {
+    val resource = findAnnotationOnHierarchy(classOf[JsonLdResource], input.getClass)
+
     orderedProperties(properties, schemaProvider)
       .iterator
       .flatMap { property =>
@@ -224,13 +226,21 @@ class BeanSerializer extends Serializer[Any] {
           val propertyName = serializedName(property)
           val jsonValue = json.value.get(propertyName)
           extractScalarValue(jsonValue).map { scalar =>
-            if (annotation.prefix().isEmpty) scalar else s"${annotation.prefix()}$scalar"
+            val prefix =
+              if (annotation.prefix().isEmpty) {
+                if (resource == null) "" else resource.value()
+              } else {
+                annotation.prefix()
+              }
+
+            if (prefix.isEmpty) scalar else s"$prefix$scalar"
           }
         }
       }
       .take(1)
       .toList
       .headOption
+  }
 
   private def extractScalarValue(node: JsonNode): Option[String] =
     Option(node).flatMap {

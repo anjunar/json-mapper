@@ -1,6 +1,6 @@
 package com.anjunar.json.mapper
 
-import com.anjunar.json.mapper.annotations.{JsonLdId, JsonLdProperty, JsonLdType, JsonLdVocab}
+import com.anjunar.json.mapper.annotations.{JsonLdId, JsonLdProperty, JsonLdResource, JsonLdType, JsonLdVocab}
 import com.anjunar.json.mapper.intermediate.JsonParser
 import com.anjunar.json.mapper.provider.DTO
 import com.anjunar.json.mapper.schema.{EntitySchema, SchemaProvider}
@@ -185,6 +185,24 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
 
     result.id shouldBe UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
     result.name shouldBe "Patrick"
+  }
+
+  test("serialize should prefer resource-based json-ld @id over raw field value") {
+    val dto = new ResourceBackedDto
+    dto.id = UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
+    dto.name = "Patrick"
+
+    val json = JsonMapper.serialize(
+      dto,
+      TypeResolver.resolve(classOf[ResourceBackedDto]),
+      null,
+      noInject
+    )
+
+    val parsed = JsonParser.parse(json).asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonObject]
+
+    parsed.getString("@id") shouldBe "https://technologyspeaks.com/service/core/users/user/550e8400-e29b-41d4-a716-446655440000"
+    parsed.getString("name") shouldBe "Patrick"
   }
 
   test("deserialize should aggregate validation errors into ErrorRequestException") {

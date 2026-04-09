@@ -250,7 +250,7 @@ class BeanDeserializer extends Deserializer[Any] {
     val jsonId = resolveEntityReferenceId(jsonObject)
 
     if (jsonId != null && jsonId.isInstanceOf[JsonString]) {
-      val id = UUID.fromString(jsonId.value.toString)
+      val id = extractUuid(jsonId.value.toString)
       val entity = context.loader.load(id, propertyType)
       if (entity != null) {
         context.checkForViolations(instance.getClass, property.name, entity, () => property.set(instance.asInstanceOf[AnyRef], entity))
@@ -312,6 +312,15 @@ class BeanDeserializer extends Deserializer[Any] {
     } else {
       jsonObject.value.get("id")
     }
+  }
+
+  private def extractUuid(raw: String): UUID = {
+    val value = Option(raw).getOrElse("").trim
+    val candidate =
+      if (value.contains("/")) value.split('/').lastOption.getOrElse(value)
+      else value
+
+    UUID.fromString(candidate)
   }
 
   private def deserializeNewEntity(
