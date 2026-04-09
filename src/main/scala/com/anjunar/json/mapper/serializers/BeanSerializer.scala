@@ -1,6 +1,6 @@
 package com.anjunar.json.mapper.serializers
 
-import com.anjunar.json.mapper.annotations.UseConverter
+import com.anjunar.json.mapper.annotations.{JsonLdId, JsonLdProperty, JsonLdType, JsonLdVocab, UseConverter}
 import com.anjunar.json.mapper.provider.EntityProvider
 import com.anjunar.json.mapper.schema.{EntitySchema, SchemaProvider, VisibilityRule}
 import com.anjunar.json.mapper.{JavaContext, ObjectMapperProvider}
@@ -108,13 +108,8 @@ class BeanSerializer extends Serializer[Any] {
 
     val typeMetadataStart = System.nanoTime()
     if (!json.value.isEmpty) {
-      val subtype = input.getClass.getAnnotation(classOf[JsonbSubtype])
-      val typeProperty = if (subtype != null) {
-        new JsonString(subtype.alias())
-      } else {
-        new JsonString(input.getClass.getSimpleName.replace("$HibernateProxy", ""))
-      }
-      json.value.putIfAbsent("@type", typeProperty)
+      applyJsonLdMetadata(input, beanModel.properties, schemaProvider, json)
+      json.value.putIfAbsent("@type", resolveTypeProperty(input))
     }
     val typeMetadataEnd = System.nanoTime()
 
@@ -168,6 +163,125 @@ class BeanSerializer extends Serializer[Any] {
           convertToJsonNode(property, nodes, value, context)
         }
     }
+  }
+
+  private def applyJsonLdMetadata(
+    input: Any,
+    properties: Array[AnnotationProperty],
+    schemaProvider: SchemaProvider[EntitySchema[Any]],
+    json: JsonObject
+  ): Unit = {
+    val contextNode = buildJsonLdContext(input, properties, schemaProvider)
+    if (!contextNode.value.isEmpty) {
+      json.value.putIfAbsent("@context", contextNode)
+    }
+
+    resolveJsonLdId(input, properties, schemaProvider, json)
+      .foreach(value => json.value.putIfAbsent("@id", new JsonString(value)))
+  }
+
+  private def buildJsonLdContext(
+    input: Any,
+    properties: Array[AnnotationProperty],
+    schemaProvider: SchemaProvider[EntitySchema[Any]]
+  ): JsonObject = {
+    val context = new JsonObject(new java.util.LinkedHashMap[String, JsonNode]())
+    val classVocab = findAnnotationOnHierarchy(classOf[JsonLdVocab], input.getClass)
+    if (classVocab != null) {
+      context.put("@vocab", classVocab.value())
+    }
+
+    orderedProperties(properties, schemaProvider).foreach { property =>
+      val jsonLdProperty = property.findAnnotation(classOf[JsonLdProperty])
+      if (jsonLdProperty != null) {
+        val term = serializedName(property)
+        if (jsonLdProperty.asReference()) {
+          context.put(
+            term,
+            new JsonObject(new java.util.LinkedHashMap[String, JsonNode]())
+              .put("@id", jsonLdProperty.value())
+              .put("@type", "@id")
+          )
+        } else {
+          context.put(term, jsonLdProperty.value())
+        }
+      }
+    }
+
+    context
+  }
+
+  private def resolveJsonLdId(
+    input: Any,
+    properties: Array[AnnotationProperty],
+    schemaProvider: SchemaProvider[EntitySchema[Any]],
+    json: JsonObject
+  ): Option[String] =
+    orderedProperties(properties, schemaProvider)
+      .iterator
+      .flatMap { property =>
+        Option(property.findAnnotation(classOf[JsonLdId])).flatMap { annotation =>
+          val propertyName = serializedName(property)
+          val jsonValue = json.value.get(propertyName)
+          extractScalarValue(jsonValue).map { scalar =>
+            if (annotation.prefix().isEmpty) scalar else s"${annotation.prefix()}$scalar"
+          }
+        }
+      }
+      .take(1)
+      .toList
+      .headOption
+
+  private def extractScalarValue(node: JsonNode): Option[String] =
+    Option(node).flatMap {
+      case value: JsonString => Option(value.value)
+      case value => Option(value.value).map(_.toString)
+    }
+
+  private def orderedProperties(
+    properties: Array[AnnotationProperty],
+    schemaProvider: SchemaProvider[EntitySchema[Any]]
+  ): Seq[AnnotationProperty] = {
+    val propertyLookup = indexedProperties(properties)
+    if (schemaProvider == null) {
+      properties.toSeq
+    } else {
+      schemaProvider.schema.properties.keys.flatMap(name => propertyLookup.get(name)).toSeq
+    }
+  }
+
+  private def indexedProperties(properties: Array[AnnotationProperty]): Map[String, AnnotationProperty] =
+    properties.iterator.map(property => property.name -> property).toMap
+
+  private def serializedName(property: AnnotationProperty): String = {
+    val jsonbProperty = property.findAnnotation(classOf[JsonbProperty])
+    if (jsonbProperty == null || jsonbProperty.value().isEmpty) property.name else jsonbProperty.value()
+  }
+
+  private def resolveTypeProperty(input: Any): JsonString = {
+    val jsonLdType = findAnnotationOnHierarchy(classOf[JsonLdType], input.getClass)
+    if (jsonLdType != null) {
+      new JsonString(jsonLdType.value())
+    } else {
+      val subtype = findAnnotationOnHierarchy(classOf[JsonbSubtype], input.getClass)
+      if (subtype != null) {
+        new JsonString(subtype.alias())
+      } else {
+        new JsonString(input.getClass.getSimpleName.replace("$HibernateProxy", ""))
+      }
+    }
+  }
+
+  private def findAnnotationOnHierarchy[A <: java.lang.annotation.Annotation](annotationClass: Class[A], clazz: Class[?]): A = {
+    var current = clazz
+    while (current != null) {
+      val annotation = current.getAnnotation(annotationClass)
+      if (annotation != null) {
+        return annotation
+      }
+      current = current.getSuperclass
+    }
+    null.asInstanceOf[A]
   }
 
   private def convertToJsonNode(property: AbstractProperty,

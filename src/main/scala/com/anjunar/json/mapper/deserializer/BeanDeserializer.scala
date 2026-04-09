@@ -1,13 +1,12 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.annotations.UseConverter
+import com.anjunar.json.mapper.annotations.{JsonLdId, JsonLdProperty, UseConverter}
 import com.anjunar.json.mapper.provider.{DTO, EntityProvider}
 import com.anjunar.json.mapper.schema.{EntitySchema, SchemaProvider, VisibilityRule}
 import com.anjunar.json.mapper.{JsonContext, ObjectMapperProvider}
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonNull, JsonObject, JsonString}
 import com.anjunar.scala.universe.{ResolvedClass, TypeResolver}
 import com.anjunar.scala.universe.introspector.{AnnotationIntrospector, AnnotationProperty}
-import jakarta.json.bind.annotation.JsonbProperty
 import jakarta.json.bind.annotation.JsonbProperty
 import jakarta.persistence.{EntityGraph, ManyToMany, ManyToOne, OneToMany, OneToOne, Subgraph}
 
@@ -34,7 +33,7 @@ class BeanDeserializer extends Deserializer[Any] {
         while (index < properties.length) {
           val property = properties(index)
 
-          if (property.name == "id") {
+          if (property.name == "id" && shouldSkipIdProperty(jsonObject, property, context)) {
             index += 1
           } else if (context.instance != null && context.instance.isInstanceOf[EntityProvider] && context.instance.asInstanceOf[EntityProvider].version > -1L) {
             if (
@@ -59,6 +58,23 @@ class BeanDeserializer extends Deserializer[Any] {
         throw new IllegalArgumentException("json must be a object")
     }
 
+  private def shouldSkipIdProperty(
+    json: JsonObject,
+    property: AnnotationProperty,
+    context: JsonContext
+  ): Boolean = {
+    if (!classOf[EntityProvider].isAssignableFrom(context.resolvedClass.raw)) {
+      return false
+    }
+
+    val jsonLdId = property.findAnnotation(classOf[JsonLdId])
+    if (jsonLdId != null && json.value.get("@id") != null) {
+      return false
+    }
+
+    true
+  }
+
   private def handleProperty(
     json: JsonObject,
     context: JsonContext,
@@ -72,8 +88,11 @@ class BeanDeserializer extends Deserializer[Any] {
         return
       }
 
-      val visibilityRule = context.inject(schemaProperty.rule)
-      if (!visibilityRule.isWriteable(context.instance, property)) {
+      val visibilityRule =
+        if (schemaProperty.rule == null) null
+        else context.inject(schemaProperty.rule)
+
+      if (visibilityRule != null && !visibilityRule.isWriteable(context.instance, property)) {
         return
       }
     }
@@ -98,11 +117,7 @@ class BeanDeserializer extends Deserializer[Any] {
 
     val jsonbProperty = property.findAnnotation(classOf[JsonbProperty])
 
-    val node = if (jsonbProperty != null && jsonbProperty.value().nonEmpty) {
-      json.value.get(jsonbProperty.value())
-    } else {
-      json.value.get(property.name)
-    }
+    val node = resolveNode(json, property, jsonbProperty)
 
     if (classOf[DTO].isAssignableFrom(propertyType)) {
       handleEntityProperty(node, property, context, oldValue, propertyType)
@@ -232,7 +247,7 @@ class BeanDeserializer extends Deserializer[Any] {
     }
 
     val jsonObject = node.asInstanceOf[JsonObject]
-    val jsonId = jsonObject.value.get("id")
+    val jsonId = resolveEntityReferenceId(jsonObject)
 
     if (jsonId != null && jsonId.isInstanceOf[JsonString]) {
       val id = UUID.fromString(jsonId.value.toString)
@@ -245,6 +260,58 @@ class BeanDeserializer extends Deserializer[Any] {
 
     val value = deserializeNewEntity(propertyType, property, context, node)
     context.checkForViolations(instance.getClass, property.name, value, () => setPropertyAndSynchronize(instance, property, value))
+  }
+
+  private def resolveNode(
+    json: JsonObject,
+    property: AnnotationProperty,
+    jsonbProperty: JsonbProperty
+  ): JsonNode = {
+    val jsonLdProperty = property.findAnnotation(classOf[JsonLdProperty])
+    val serializedName =
+      if (jsonbProperty != null && jsonbProperty.value().nonEmpty) {
+        jsonbProperty.value()
+      } else {
+        property.name
+      }
+
+    if (jsonLdProperty != null) {
+      val jsonLdNode = json.value.get(jsonLdProperty.value())
+      if (jsonLdNode != null) {
+        return jsonLdNode
+      }
+    }
+
+    if (property.findAnnotation(classOf[JsonLdId]) != null) {
+      val jsonLdIdNode = json.value.get("@id")
+      if (jsonLdIdNode != null) {
+        return normalizeJsonLdIdNode(jsonLdIdNode, property.findAnnotation(classOf[JsonLdId]))
+      }
+    }
+
+    json.value.get(serializedName)
+  }
+
+  private def normalizeJsonLdIdNode(node: JsonNode, annotation: JsonLdId): JsonNode =
+    node match {
+      case value: JsonString if annotation != null && annotation.prefix() != null && annotation.prefix().nonEmpty =>
+        val raw = Option(value.value).map(_.toString).orNull
+        if (raw != null && raw.startsWith(annotation.prefix())) {
+          new JsonString(raw.substring(annotation.prefix().length))
+        } else {
+          value
+        }
+      case _ =>
+        node
+    }
+
+  private def resolveEntityReferenceId(jsonObject: JsonObject): JsonNode = {
+    val jsonLdId = jsonObject.value.get("@id")
+    if (jsonLdId != null) {
+      jsonLdId
+    } else {
+      jsonObject.value.get("id")
+    }
   }
 
   private def deserializeNewEntity(

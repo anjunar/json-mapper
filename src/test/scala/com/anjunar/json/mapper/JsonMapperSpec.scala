@@ -1,7 +1,9 @@
 package com.anjunar.json.mapper
 
+import com.anjunar.json.mapper.annotations.{JsonLdId, JsonLdProperty, JsonLdType, JsonLdVocab}
 import com.anjunar.json.mapper.intermediate.JsonParser
 import com.anjunar.json.mapper.provider.DTO
+import com.anjunar.json.mapper.schema.{EntitySchema, SchemaProvider}
 import com.anjunar.scala.universe.TypeResolver
 import jakarta.json.bind.annotation.JsonbProperty
 import jakarta.validation.executable.ExecutableValidator
@@ -56,6 +58,28 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     parsed.getString("@type") shouldBe "ProfileDto"
   }
 
+  test("serialize should emit json-ld metadata from schema and java annotations") {
+    val person = new LinkedDataProfileDto
+    person.id = UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
+    person.name = "Patrick"
+
+    val json = JsonMapper.serialize(
+      person,
+      TypeResolver.resolve(classOf[LinkedDataProfileDto]),
+      null,
+      noInject
+    )
+
+    val parsed = JsonParser.parse(json).asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonObject]
+    val context = parsed.getJsonObject("@context")
+
+    parsed.getString("@type") shouldBe "https://schema.org/Person"
+    parsed.getString("@id") shouldBe "urn:uuid:550e8400-e29b-41d4-a716-446655440000"
+    context.getString("@vocab") shouldBe "https://schema.org/"
+    context.getString("name") shouldBe "https://schema.org/name"
+    context.getString("homepage") shouldBe "https://schema.org/url"
+  }
+
   test("deserialize should update scalar nested collection and loaded DTO properties") {
     val loadedTag = new TagDto
     loadedTag.label = "loaded"
@@ -99,6 +123,68 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     result.tags.size() shouldBe 2
     result.tags.get(0).label shouldBe "alpha"
     result.tags.get(1).label shouldBe "beta"
+  }
+
+  test("deserialize should accept json-ld property aliases and @id") {
+    val linked = new TagDto
+    linked.label = "linked"
+
+    val loaderId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
+    val loader = new EntityLoader {
+      override def load(id: UUID, clazz: Class[?]): Any =
+        if (id == loaderId && clazz == classOf[TagDto]) linked else null
+    }
+
+    val profile = new LinkedDataReadDto
+
+    val json =
+      s"""{
+         |  "@context": {
+         |    "@vocab": "https://schema.org/",
+         |    "name": "https://schema.org/name"
+         |  },
+         |  "@type": "https://schema.org/Person",
+         |  "https://schema.org/name": "Updated",
+         |  "linkedTag": {
+         |    "@id": "$loaderId"
+         |  }
+         |}""".stripMargin
+
+    val result = JsonMapper.deserialize(
+      JsonParser.parse(json),
+      profile,
+      TypeResolver.resolve(classOf[LinkedDataReadDto]),
+      null,
+      loader,
+      noInject,
+      emptyValidator
+    ).asInstanceOf[LinkedDataReadDto]
+
+    result.name shouldBe "Updated"
+    result.linkedTag shouldBe linked
+  }
+
+  test("deserialize should strip json-ld id prefix for scalar id properties") {
+    val dto = new LinkedDataProfileDto
+
+    val json =
+      """{
+        |  "@id": "urn:uuid:550e8400-e29b-41d4-a716-446655440000",
+        |  "name": "Patrick"
+        |}""".stripMargin
+
+    val result = JsonMapper.deserialize(
+      JsonParser.parse(json),
+      dto,
+      TypeResolver.resolve(classOf[LinkedDataProfileDto]),
+      null,
+      nullLoader,
+      noInject,
+      emptyValidator
+    ).asInstanceOf[LinkedDataProfileDto]
+
+    result.id shouldBe UUID.fromString("550e8400-e29b-41d4-a716-446655440000")
+    result.name shouldBe "Patrick"
   }
 
   test("deserialize should aggregate validation errors into ErrorRequestException") {
@@ -186,4 +272,24 @@ class ProfileDto {
 
 class TagDto extends DTO {
   @(JsonbProperty @field) var label: String = null
+}
+
+@JsonLdType("https://schema.org/Person")
+@JsonLdVocab("https://schema.org/")
+class LinkedDataProfileDto extends DTO {
+  @(JsonbProperty @field) @JsonLdId(prefix = "urn:uuid:") var id: UUID = null
+  @(JsonbProperty @field) @JsonLdProperty("https://schema.org/name") var name: String = null
+  @(JsonbProperty @field) @JsonLdProperty("https://schema.org/url") var homepage: String = null
+}
+
+object LinkedDataProfileDto extends SchemaProvider[EntitySchema[LinkedDataProfileDto]]:
+  class Schema extends EntitySchema[LinkedDataProfileDto] {
+    val id = property(_.id)
+    val name = property(_.name)
+    val homepage = property(_.homepage)
+  }
+
+class LinkedDataReadDto extends DTO {
+  @(JsonbProperty @field) @JsonLdProperty("https://schema.org/name") var name: String = null
+  @(JsonbProperty @field) var linkedTag: TagDto = null
 }
