@@ -38,7 +38,7 @@ Global / gpgCommand := {
     .getOrElse("gpg")
 }
 
-lazy val root = Project(id = "json-mapper", base = file("."))
+lazy val root = Project(id = "json-mapper-root", base = file("."))
   .settings(
     name := "json-mapper",
     moduleName := "json-mapper",
