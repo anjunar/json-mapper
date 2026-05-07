@@ -1,5 +1,8 @@
 package com.anjunar.json.mapper.serializers
 
+import com.anjunar.json.mapper.annotations.JsonbAnyProperty
+import com.anjunar.scala.universe.introspector.AnnotationProperty
+
 import java.time.temporal.{Temporal, TemporalAmount}
 import java.util.{Locale, UUID}
 
@@ -17,6 +20,7 @@ object SerializerRegistry {
   private val temporalAmountSerializer = new TemporalAmountSerializer
   private val temporalSerializer = new TemporalSerializer
   private val beanSerializer = new BeanSerializer
+  private val jsonAnyPropertySerializer = new JsonAnyPropertySerializer
 
   def find[T](clazz: Class[T], instance: Any): Serializer[T] =
     (instance match {
@@ -33,5 +37,12 @@ object SerializerRegistry {
       case _: Temporal => temporalSerializer
       case _ => beanSerializer
     }).asInstanceOf[Serializer[T]]
+
+  def findPropertySerializer(property: AnnotationProperty, instance: Any): Serializer[Any] =
+    if (property.findAnnotation(classOf[JsonbAnyProperty]) != null) {
+      jsonAnyPropertySerializer.asInstanceOf[Serializer[Any]]
+    } else {
+      find(property.propertyType.raw.asInstanceOf[Class[Any]], instance)
+    }
 
 }

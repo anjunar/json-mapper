@@ -1,11 +1,16 @@
 package com.anjunar.json.mapper.deserializer
 
+import com.anjunar.json.mapper.annotations.JsonbAnyProperty
 import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonBoolean, JsonNode, JsonNumber, JsonObject, JsonString}
+import com.anjunar.scala.universe.introspector.AnnotationProperty
 
 import java.time.temporal.{Temporal, TemporalAmount}
 import java.util.{Locale, UUID}
 
 object DeserializerRegistry {
+
+  private val jsonAnyPropertyDeserializer = new JsonAnyPropertyDeserializer
+  private val nullDeserializer = new NullDeserializer
 
   def findDeserializer[T](clazz: Class[T], node: JsonNode): Deserializer[T] =
     (node match {
@@ -13,10 +18,12 @@ object DeserializerRegistry {
       case _: JsonBoolean => new BooleanDeserializer
       case _: JsonArray => new ArrayDeserializer
       case _: JsonObject =>
-        if (classOf[java.util.Map[?, ?]].isAssignableFrom(clazz)) {
+        if (
+          clazz == classOf[Object] ||
+          clazz == classOf[java.lang.Object] ||
+          classOf[java.util.Map[?, ?]].isAssignableFrom(clazz)
+        ) {
           new MapDeserializer
-        } else if (clazz == classOf[Object] || clazz == classOf[java.lang.Object]) {
-          new BeanDeserializer
         } else {
           new BeanDeserializer
         }
@@ -40,8 +47,17 @@ object DeserializerRegistry {
         } else {
           throw new IllegalArgumentException(s"Unsupported type: $clazz")
         }
+      case _: com.anjunar.json.mapper.intermediate.model.JsonNull =>
+        nullDeserializer
       case _: JsonNode =>
         throw new IllegalArgumentException(s"Unsupported type: $clazz")
     }).asInstanceOf[Deserializer[T]]
+
+  def findPropertyDeserializer(property: AnnotationProperty, node: JsonNode): Deserializer[Any] =
+    if (property.findAnnotation(classOf[JsonbAnyProperty]) != null) {
+      jsonAnyPropertyDeserializer.asInstanceOf[Deserializer[Any]]
+    } else {
+      findDeserializer(property.propertyType.raw.asInstanceOf[Class[Any]], node)
+    }
 
 }

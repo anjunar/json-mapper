@@ -1,6 +1,6 @@
 package com.anjunar.json.mapper.serializers
 
-import com.anjunar.json.mapper.annotations.UseConverter
+import com.anjunar.json.mapper.annotations.{JsonbAnyProperty, UseConverter}
 import com.anjunar.json.mapper.provider.EntityProvider
 import com.anjunar.json.mapper.schema.{EntitySchema, SchemaProvider, VisibilityRule}
 import com.anjunar.json.mapper.{JavaContext, ObjectMapperProvider}
@@ -47,10 +47,12 @@ class BeanSerializer extends Serializer[Any] {
     val loopStart = System.nanoTime()
     while (index < properties.length) {
       val property = properties(index)
+      val isAnyProperty = property.findAnnotation(classOf[JsonbAnyProperty]) != null
 
       val graphCheckStart = System.nanoTime()
-      val skipByGraph = 
-        property.name != "links" &&
+      val skipByGraph =
+        !isAnyProperty &&
+          property.name != "links" &&
           classOf[EntityProvider].isAssignableFrom(context.resolvedClass.raw) &&
           context.graph != null &&
           !isSelectedByGraph(context, property)
@@ -91,14 +93,22 @@ class BeanSerializer extends Serializer[Any] {
               index += 1
             } else {
               val propSerStart = System.nanoTime()
-              serializeProperty(input, context, nodes, property)
+              if (isAnyProperty) {
+                serializeAnyProperty(input, context, nodes, property)
+              } else {
+                serializeProperty(input, context, nodes, property)
+              }
               propertySerializeTime += (System.nanoTime() - propSerStart)
               index += 1
             }
           }
         } else {
           val propSerStart = System.nanoTime()
-          serializeProperty(input, context, nodes, property)
+          if (isAnyProperty) {
+            serializeAnyProperty(input, context, nodes, property)
+          } else {
+            serializeProperty(input, context, nodes, property)
+          }
           propertySerializeTime += (System.nanoTime() - propSerStart)
           index += 1
         }
@@ -167,6 +177,46 @@ class BeanSerializer extends Serializer[Any] {
         if (value != null) {
           convertToJsonNode(property, nodes, value, context)
         }
+    }
+  }
+
+  private def serializeAnyProperty(
+    input: Any,
+    context: JavaContext,
+    nodes: java.util.LinkedHashMap[String, JsonNode],
+    property: AnnotationProperty
+  ): Unit = {
+    val value =
+      try {
+        property.get(input.asInstanceOf[AnyRef])
+      } catch {
+        case _: Exception => null
+      }
+
+    if (value == null) {
+      return
+    }
+
+    val javaContext = new JavaContext(
+      property.propertyType,
+      context.graph,
+      context.inject,
+      context,
+      property.name
+    )
+
+    val serializer = SerializerRegistry.findPropertySerializer(property, value)
+    val jsonNode = serializer.serialize(value, javaContext)
+
+    jsonNode match {
+      case jsonObject: JsonObject =>
+        val iterator = jsonObject.value.entrySet().iterator()
+        while (iterator.hasNext) {
+          val entry = iterator.next()
+          nodes.putIfAbsent(entry.getKey, entry.getValue)
+        }
+      case _ =>
+        throw new IllegalStateException(s"JsonAnyProperty '${property.name}' must serialize to an object")
     }
   }
 

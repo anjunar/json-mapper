@@ -1,5 +1,6 @@
 package com.anjunar.json.mapper
 
+import com.anjunar.json.mapper.annotations.JsonbAnyProperty
 import com.anjunar.json.mapper.intermediate.JsonParser
 import com.anjunar.json.mapper.provider.DTO
 import com.anjunar.scala.universe.TypeResolver
@@ -56,6 +57,32 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     parsed.getString("@type") shouldBe "ProfileDto"
   }
 
+  test("serialize should flatten properties from JsonAnyProperty map") {
+    val profile = new ProfileDto
+    profile.name = "Patrick"
+    profile.attributes.put("nicknameAlias", "Pat")
+    profile.attributes.put("score", Long.box(7))
+
+    val nested = new util.LinkedHashMap[String, Any]()
+    nested.put("enabled", Boolean.box(true))
+    profile.attributes.put("flags", nested)
+
+    val json = JsonMapper.serialize(
+      profile,
+      TypeResolver.resolve(classOf[ProfileDto]),
+      null,
+      noInject
+    )
+
+    val parsed = JsonParser.parse(json).asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonObject]
+
+    parsed.getString("name") shouldBe "Patrick"
+    parsed.getString("nicknameAlias") shouldBe "Pat"
+    parsed.value.get("score").value shouldBe "7"
+    parsed.getJsonObject("flags").value.get("enabled").value shouldBe true
+    parsed.value.containsKey("attributes") shouldBe false
+  }
+
   test("deserialize should update scalar nested collection and loaded DTO properties") {
     val loadedTag = new TagDto
     loadedTag.label = "loaded"
@@ -99,6 +126,45 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     result.tags.size() shouldBe 2
     result.tags.get(0).label shouldBe "alpha"
     result.tags.get(1).label shouldBe "beta"
+  }
+
+  test("deserialize should collect unknown properties into JsonAnyProperty map") {
+    val profile = new ProfileDto
+    profile.primaryTag = new TagDto
+
+    val json =
+      """{
+        |  "name": "Updated",
+        |  "nickname": "PJ",
+        |  "score": 7,
+        |  "enabled": true,
+        |  "metadata": {
+        |    "level": "gold"
+        |  },
+        |  "aliases": ["p", "patrick"]
+        |}""".stripMargin
+
+    val result = JsonMapper.deserialize(
+      JsonParser.parse(json),
+      profile,
+      TypeResolver.resolve(classOf[ProfileDto]),
+      null,
+      nullLoader,
+      noInject,
+      emptyValidator
+    ).asInstanceOf[ProfileDto]
+
+    result.name shouldBe "Updated"
+    result.nickname shouldBe "PJ"
+    result.attributes.get("score") shouldBe Long.box(7)
+    result.attributes.get("enabled") shouldBe Boolean.box(true)
+
+    val metadata = result.attributes.get("metadata").asInstanceOf[java.util.Map[String, Any]]
+    metadata.get("level") shouldBe "gold"
+
+    val aliases = result.attributes.get("aliases").asInstanceOf[java.util.List[Any]]
+    aliases.get(0) shouldBe "p"
+    aliases.get(1) shouldBe "patrick"
   }
 
   test("deserialize should aggregate validation errors into ErrorRequestException") {
@@ -182,6 +248,7 @@ class ProfileDto {
   @(JsonbProperty @field) var primaryTag: TagDto = null
   @(JsonbProperty @field) var linkedTag: TagDto = null
   @(JsonbProperty @field) var tags: java.util.List[TagDto] = new java.util.ArrayList[TagDto]()
+  @(JsonbAnyProperty @field) @(JsonbProperty @field) var attributes: java.util.Map[String, Any] = new java.util.LinkedHashMap[String, Any]()
 }
 
 class TagDto extends DTO {

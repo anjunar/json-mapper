@@ -1,6 +1,6 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.annotations.UseConverter
+import com.anjunar.json.mapper.annotations.{JsonbAnyProperty, UseConverter}
 import com.anjunar.json.mapper.provider.{DTO, EntityProvider}
 import com.anjunar.json.mapper.schema.{EntitySchema, SchemaProvider, VisibilityRule}
 import com.anjunar.json.mapper.{JsonContext, ObjectMapperProvider}
@@ -30,11 +30,13 @@ class BeanDeserializer extends Deserializer[Any] {
           }
 
         val properties = beanModel.properties
+        val anyProperty = findJsonAnyProperty(properties)
+        val handledNames = new java.util.HashSet[String]()
         var index = 0
         while (index < properties.length) {
           val property = properties(index)
 
-          if (property.name == "id") {
+          if (property.name == "id" || isJsonAnyProperty(property)) {
             index += 1
           } else if (context.instance != null && context.instance.isInstanceOf[EntityProvider] && context.instance.asInstanceOf[EntityProvider].version > -1L) {
             if (
@@ -45,13 +47,17 @@ class BeanDeserializer extends Deserializer[Any] {
             ) {
               index += 1
             } else {
-              handleProperty(jsonObject, context, property, schemaProvider)
+              handleProperty(jsonObject, context, property, schemaProvider, handledNames)
               index += 1
             }
           } else {
-            handleProperty(jsonObject, context, property, schemaProvider)
+            handleProperty(jsonObject, context, property, schemaProvider, handledNames)
             index += 1
           }
+        }
+
+        if (anyProperty != null) {
+          handleAnyProperty(jsonObject, context, anyProperty, handledNames)
         }
 
         context.instance
@@ -63,7 +69,8 @@ class BeanDeserializer extends Deserializer[Any] {
     json: JsonObject,
     context: JsonContext,
     property: AnnotationProperty,
-    schemaProvider: SchemaProvider[EntitySchema[Any]]
+    schemaProvider: SchemaProvider[EntitySchema[Any]],
+    handledNames: java.util.Set[String]
   ): Unit = {
     if (schemaProvider != null) {
       val schemaProperties = schemaProvider.schema.properties
@@ -104,6 +111,8 @@ class BeanDeserializer extends Deserializer[Any] {
       json.value.get(property.name)
     }
 
+    handledNames.add(resolveJsonName(property))
+
     if (classOf[DTO].isAssignableFrom(propertyType)) {
       handleEntityProperty(node, property, context, oldValue, propertyType)
     } else if (classOf[java.util.Collection[?]].isAssignableFrom(propertyType)) {
@@ -113,6 +122,39 @@ class BeanDeserializer extends Deserializer[Any] {
     } else {
       handleNormalProperty(node, property, context, oldValue)
     }
+  }
+
+  private def handleAnyProperty(
+    json: JsonObject,
+    context: JsonContext,
+    property: AnnotationProperty,
+    handledNames: java.util.Set[String]
+  ): Unit = {
+    val instance = context.instance
+    val oldValue =
+      try {
+        property.get(instance.asInstanceOf[AnyRef])
+      } catch {
+        case _: Exception => null
+      }
+
+    val targetMap =
+      try {
+        property.get(instance.asInstanceOf[AnyRef]).asInstanceOf[java.util.Map[String, Any]]
+      } catch {
+        case _: Exception => null
+      }
+
+    if (targetMap == null) {
+      throw new IllegalStateException(s"JsonAnyProperty '${property.name}' must be initialized")
+    }
+
+    val deserialized = deserializePropertyValue(property, property.name, oldValue, context, json).asInstanceOf[java.util.Map[String, Any]]
+
+    context.checkForViolations(instance.getClass, property.name, targetMap, () => {
+      targetMap.clear()
+      targetMap.putAll(deserialized)
+    })
   }
 
   private def handleNormalProperty(
@@ -441,8 +483,40 @@ class BeanDeserializer extends Deserializer[Any] {
     node: JsonNode
   ): Any = {
     val deserializer = DeserializerRegistry.findDeserializer(propertyType.raw.asInstanceOf[Class[Any]], node)
-    val jsonContext = new JsonContext(propertyType, existingInstance, context.graph, context.loader, context.validator, context.inject,context, name)
+    val jsonContext = new JsonContext(propertyType, existingInstance, context.graph, context.loader, context.validator, context.inject, context, name)
     deserializer.deserialize(node, jsonContext)
+  }
+
+  private def deserializePropertyValue(
+    property: AnnotationProperty,
+    name: String,
+    existingInstance: Any,
+    context: JsonContext,
+    node: JsonNode
+  ): Any = {
+    val deserializer = DeserializerRegistry.findPropertyDeserializer(property, node)
+    val jsonContext = new JsonContext(property.propertyType, existingInstance, context.graph, context.loader, context.validator, context.inject, context, name)
+    deserializer.deserialize(node, jsonContext)
+  }
+
+  private def findJsonAnyProperty(properties: Array[AnnotationProperty]): AnnotationProperty = {
+    val matches = properties.filter(isJsonAnyProperty)
+    if (matches.length > 1) {
+      throw new IllegalStateException("Only one property can be annotated with @JsonAnyProperty")
+    }
+    matches.headOption.orNull
+  }
+
+  private def isJsonAnyProperty(property: AnnotationProperty): Boolean =
+    property.findAnnotation(classOf[JsonbAnyProperty]) != null
+
+  private def resolveJsonName(property: AnnotationProperty): String = {
+    val jsonbProperty = property.findAnnotation(classOf[JsonbProperty])
+    if (jsonbProperty != null && jsonbProperty.value().nonEmpty) {
+      jsonbProperty.value()
+    } else {
+      property.name
+    }
   }
 
   private def isSelectedByGraph(context: JsonContext, property: AnnotationProperty): Boolean = {

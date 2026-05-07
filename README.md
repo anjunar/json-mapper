@@ -315,6 +315,36 @@ class InvoiceDto extends DTO {
 }
 ```
 
+## Collect Unknown Properties
+
+Unknown JSON properties can be collected into a dedicated `Map[String, Any]` and flattened again during serialization.
+
+```scala
+import com.anjunar.json.mapper.annotations.JsonbAnyProperty
+import jakarta.json.bind.annotation.JsonbProperty
+import scala.annotation.meta.field
+
+class UserDto extends DTO {
+  @(JsonbProperty @field) var name: String = null
+  @(JsonbAnyProperty @field)
+  @(JsonbProperty @field)
+  var attributes: java.util.Map[String, Any] = new java.util.LinkedHashMap[String, Any]()
+}
+```
+
+Example input:
+
+```json
+{"name":"Patrick","nickname":"Pat","score":7}
+```
+
+After deserialization:
+
+- `name` is written to the regular bean property
+- `nickname` and `score` are stored in `attributes`
+
+During serialization, entries from `attributes` are emitted as normal top-level JSON properties again.
+
 ## Notes
 
 - Serialization includes an `@type` property for non-empty objects.

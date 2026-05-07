@@ -3,6 +3,7 @@ package com.anjunar.json.mapper.deserializer
 import com.anjunar.json.mapper.JsonContext
 import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonNode, JsonObject}
 import com.anjunar.json.mapper.provider.{DTO, EntityProvider}
+import com.anjunar.scala.universe.TypeResolver
 
 import java.util.UUID
 
@@ -18,7 +19,8 @@ class ArrayDeserializer extends Deserializer[java.util.Collection[?]] {
             new java.util.ArrayList[Any]()
           }
 
-        val elementResolvedClass = context.resolvedClass.typeArguments(0)
+        val elementResolvedClass =
+          context.resolvedClass.typeArguments.headOption.getOrElse(TypeResolver.resolve(classOf[Object]))
         DeserializerRegistry.findDeserializer(elementResolvedClass.raw.asInstanceOf[Class[Any]], json)
 
         var index = 0
@@ -27,15 +29,23 @@ class ArrayDeserializer extends Deserializer[java.util.Collection[?]] {
           val elementNode = iterator.next()
           elementNode match {
             case node: JsonObject =>
-              val entityCollection = context.instance.asInstanceOf[java.util.Collection[EntityProvider]]
+              val entityCollection =
+                context.instance match {
+                  case value: java.util.Collection[?] => value.asInstanceOf[java.util.Collection[EntityProvider]]
+                  case _ => null
+                }
               val idNode = node.value.get("id")
 
               val entity =
-                if (idNode == null) {
+                if (elementResolvedClass.raw == classOf[Object] || elementResolvedClass.raw == classOf[java.lang.Object]) {
+                  null
+                } else if (idNode == null) {
                   elementResolvedClass.raw.getConstructor().newInstance()
                 } else {
                   val entityId = UUID.fromString(idNode.value.toString)
-                  val existing = entityCollection.stream().filter(entityProvider => entityProvider.id == entityId).findFirst()
+                  val existing =
+                    if (entityCollection == null) java.util.Optional.empty[EntityProvider]()
+                    else entityCollection.stream().filter(entityProvider => entityProvider.id == entityId).findFirst()
                   if (existing.isPresent) {
                     existing.get()
                   } else {
@@ -67,17 +77,30 @@ class ArrayDeserializer extends Deserializer[java.util.Collection[?]] {
               collection.add(deserialized)
             case _ =>
               val elementInstance =
-                if (classOf[EntityProvider].isAssignableFrom(elementResolvedClass.raw)) {
+                if (
+                  elementResolvedClass.raw == classOf[Object] ||
+                  elementResolvedClass.raw == classOf[java.lang.Object] ||
+                  classOf[EntityProvider].isAssignableFrom(elementResolvedClass.raw)
+                ) {
                   null
                 } else {
-                  val existingIterator = context.instance.asInstanceOf[java.util.Collection[Any]].iterator()
-                  var currentIndex = 0
-                  var currentValue: Any = null
-                  while (existingIterator.hasNext && currentIndex <= index) {
-                    currentValue = existingIterator.next()
-                    currentIndex += 1
+                  val existingCollection =
+                    context.instance match {
+                      case value: java.util.Collection[?] => value.asInstanceOf[java.util.Collection[Any]]
+                      case _ => null
+                    }
+                  if (existingCollection == null) {
+                    null
+                  } else {
+                    val existingIterator = existingCollection.iterator()
+                    var currentIndex = 0
+                    var currentValue: Any = null
+                    while (existingIterator.hasNext && currentIndex <= index) {
+                      currentValue = existingIterator.next()
+                      currentIndex += 1
+                    }
+                    if (currentIndex == index + 1) currentValue else null
                   }
-                  if (currentIndex == index + 1) currentValue else null
                 }
 
               val jsonContext = new JsonContext(
