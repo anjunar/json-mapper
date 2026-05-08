@@ -1,15 +1,14 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.annotations.{JsonbAnyProperty, UseConverter}
-import com.anjunar.json.mapper.provider.{DTO, EntityProvider}
-import com.anjunar.json.mapper.schema.{EntitySchema, SchemaProvider, VisibilityRule}
-import com.anjunar.json.mapper.{JsonContext, ObjectMapperProvider}
+import com.anjunar.json.mapper.JsonContext
+import com.anjunar.json.mapper.annotations.{JsonbAnyProperty, JsonbGraphProperty, UseConverter}
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonNull, JsonObject, JsonString}
-import com.anjunar.scala.universe.{ResolvedClass, TypeResolver}
+import com.anjunar.json.mapper.provider.{DTO, EntityProvider}
+import com.anjunar.json.mapper.schema.{EntitySchema, SchemaProvider}
 import com.anjunar.scala.universe.introspector.{AnnotationIntrospector, AnnotationProperty}
+import com.anjunar.scala.universe.{ResolvedClass, TypeResolver}
 import jakarta.json.bind.annotation.JsonbProperty
-import jakarta.json.bind.annotation.JsonbProperty
-import jakarta.persistence.{EntityGraph, ManyToMany, ManyToOne, OneToMany, OneToOne, Subgraph}
+import jakarta.persistence.*
 
 import java.lang.reflect.InvocationTargetException
 import java.util.UUID
@@ -40,10 +39,11 @@ class BeanDeserializer extends Deserializer[Any] {
             index += 1
           } else if (context.instance != null && context.instance.isInstanceOf[EntityProvider] && context.instance.asInstanceOf[EntityProvider].version > -1L) {
             if (
-              property.name != "links" &&
-              classOf[EntityProvider].isAssignableFrom(context.resolvedClass.raw) &&
-              context.graph != null &&
-              !isSelectedByGraph(context, property)
+              (property.name != "links" &&
+                classOf[EntityProvider].isAssignableFrom(context.resolvedClass.raw) &&
+                context.graph != null &&
+                !isSelectedByGraph(context, property)) ||
+                isJsonGraphProperty(property)
             ) {
               index += 1
             } else {
@@ -66,12 +66,12 @@ class BeanDeserializer extends Deserializer[Any] {
     }
 
   private def handleProperty(
-    json: JsonObject,
-    context: JsonContext,
-    property: AnnotationProperty,
-    schemaProvider: SchemaProvider[EntitySchema[Any]],
-    handledNames: java.util.Set[String]
-  ): Unit = {
+                              json: JsonObject,
+                              context: JsonContext,
+                              property: AnnotationProperty,
+                              schemaProvider: SchemaProvider[EntitySchema[Any]],
+                              handledNames: java.util.Set[String]
+                            ): Unit = {
     if (schemaProvider != null) {
       val schemaProperties = schemaProvider.schema.properties
       val schemaProperty = schemaProperties.get(property.name).orNull
@@ -125,11 +125,11 @@ class BeanDeserializer extends Deserializer[Any] {
   }
 
   private def handleAnyProperty(
-    json: JsonObject,
-    context: JsonContext,
-    property: AnnotationProperty,
-    handledNames: java.util.Set[String]
-  ): Unit = {
+                                 json: JsonObject,
+                                 context: JsonContext,
+                                 property: AnnotationProperty,
+                                 handledNames: java.util.Set[String]
+                               ): Unit = {
     val instance = context.instance
     val oldValue =
       try {
@@ -158,11 +158,11 @@ class BeanDeserializer extends Deserializer[Any] {
   }
 
   private def handleNormalProperty(
-    node: JsonNode,
-    property: AnnotationProperty,
-    context: JsonContext,
-    oldValue: Any
-  ): Unit = {
+                                    node: JsonNode,
+                                    property: AnnotationProperty,
+                                    context: JsonContext,
+                                    oldValue: Any
+                                  ): Unit = {
     if (node == null) {
       return
     }
@@ -194,11 +194,11 @@ class BeanDeserializer extends Deserializer[Any] {
   }
 
   private def handleCollectionProperty(
-    node: JsonNode,
-    property: AnnotationProperty,
-    context: JsonContext,
-    oldValue: Any
-  ): Unit = {
+                                        node: JsonNode,
+                                        property: AnnotationProperty,
+                                        context: JsonContext,
+                                        oldValue: Any
+                                      ): Unit = {
     if (node == null) {
       return
     }
@@ -222,11 +222,11 @@ class BeanDeserializer extends Deserializer[Any] {
   }
 
   private def handleMapProperty(
-    node: JsonNode,
-    property: AnnotationProperty,
-    context: JsonContext,
-    oldValue: Any
-  ): Unit = {
+                                 node: JsonNode,
+                                 property: AnnotationProperty,
+                                 context: JsonContext,
+                                 oldValue: Any
+                               ): Unit = {
     if (node == null) {
       return
     }
@@ -250,12 +250,12 @@ class BeanDeserializer extends Deserializer[Any] {
   }
 
   private def handleEntityProperty(
-    node: JsonNode,
-    property: AnnotationProperty,
-    context: JsonContext,
-    oldValue: Any,
-    propertyType: Class[?]
-  ): Unit = {
+                                    node: JsonNode,
+                                    property: AnnotationProperty,
+                                    context: JsonContext,
+                                    oldValue: Any,
+                                    propertyType: Class[?]
+                                  ): Unit = {
     if (node == null) {
       return
     }
@@ -290,11 +290,11 @@ class BeanDeserializer extends Deserializer[Any] {
   }
 
   private def deserializeNewEntity(
-    propertyType: Class[?],
-    property: AnnotationProperty,
-    context: JsonContext,
-    node: JsonNode
-  ): Any = {
+                                    propertyType: Class[?],
+                                    property: AnnotationProperty,
+                                    context: JsonContext,
+                                    node: JsonNode
+                                  ): Any = {
     val newInstance = propertyType.getConstructor().newInstance()
     deserializeValue(property.propertyType, property.name, newInstance, context, node)
   }
@@ -448,8 +448,8 @@ class BeanDeserializer extends Deserializer[Any] {
     targetModel.properties.find { candidate =>
       val annotation = candidate.findAnnotation(classOf[OneToOne])
       annotation != null &&
-      annotation.mappedBy() == mappedBy &&
-      candidate.propertyType.raw.isAssignableFrom(expectedType)
+        annotation.mappedBy() == mappedBy &&
+        candidate.propertyType.raw.isAssignableFrom(expectedType)
     }.orNull
   }
 
@@ -459,8 +459,8 @@ class BeanDeserializer extends Deserializer[Any] {
       val annotation = candidate.findAnnotation(classOf[OneToMany])
       val elementType = candidate.propertyType.typeArguments.headOption.map(_.raw).orNull
       annotation != null &&
-      annotation.mappedBy() == mappedBy &&
-      (elementType == null || elementType.isAssignableFrom(expectedElementType))
+        annotation.mappedBy() == mappedBy &&
+        (elementType == null || elementType.isAssignableFrom(expectedElementType))
     }.orNull
   }
 
@@ -470,30 +470,30 @@ class BeanDeserializer extends Deserializer[Any] {
       val annotation = candidate.findAnnotation(classOf[ManyToMany])
       val elementType = candidate.propertyType.typeArguments.headOption.map(_.raw).orNull
       annotation != null &&
-      annotation.mappedBy() == mappedBy &&
-      (elementType == null || elementType.isAssignableFrom(expectedElementType))
+        annotation.mappedBy() == mappedBy &&
+        (elementType == null || elementType.isAssignableFrom(expectedElementType))
     }.orNull
   }
 
   private def deserializeValue(
-    propertyType: ResolvedClass,
-    name: String,
-    existingInstance: Any,
-    context: JsonContext,
-    node: JsonNode
-  ): Any = {
+                                propertyType: ResolvedClass,
+                                name: String,
+                                existingInstance: Any,
+                                context: JsonContext,
+                                node: JsonNode
+                              ): Any = {
     val deserializer = DeserializerRegistry.findDeserializer(propertyType.raw.asInstanceOf[Class[Any]], node)
     val jsonContext = new JsonContext(propertyType, existingInstance, context.graph, context.loader, context.validator, context.inject, context, name)
     deserializer.deserialize(node, jsonContext)
   }
 
   private def deserializePropertyValue(
-    property: AnnotationProperty,
-    name: String,
-    existingInstance: Any,
-    context: JsonContext,
-    node: JsonNode
-  ): Any = {
+                                        property: AnnotationProperty,
+                                        name: String,
+                                        existingInstance: Any,
+                                        context: JsonContext,
+                                        node: JsonNode
+                                      ): Any = {
     val deserializer = DeserializerRegistry.findPropertyDeserializer(property, node)
     val jsonContext = new JsonContext(property.propertyType, existingInstance, context.graph, context.loader, context.validator, context.inject, context, name)
     deserializer.deserialize(node, jsonContext)
@@ -509,6 +509,15 @@ class BeanDeserializer extends Deserializer[Any] {
 
   private def isJsonAnyProperty(property: AnnotationProperty): Boolean =
     property.findAnnotation(classOf[JsonbAnyProperty]) != null
+
+  private def isJsonGraphProperty(property: AnnotationProperty): Boolean = {
+    val graphProperty = property.findAnnotation(classOf[JsonbGraphProperty])
+    if (graphProperty == null) {
+      false
+    } else {
+      graphProperty.transitive()
+    }
+  }
 
   private def resolveJsonName(property: AnnotationProperty): String = {
     val jsonbProperty = property.findAnnotation(classOf[JsonbProperty])
@@ -549,7 +558,7 @@ class BeanDeserializer extends Deserializer[Any] {
 
     if (
       classOf[java.util.Collection[?]].isAssignableFrom(context.parent.resolvedClass.raw) ||
-      context.parent.resolvedClass.raw.isArray
+        context.parent.resolvedClass.raw.isArray
     ) {
       return resolveContainer(context.parent)
     }

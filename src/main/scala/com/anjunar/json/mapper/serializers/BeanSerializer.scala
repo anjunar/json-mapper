@@ -1,15 +1,15 @@
 package com.anjunar.json.mapper.serializers
 
-import com.anjunar.json.mapper.annotations.{JsonbAnyProperty, UseConverter}
+import com.anjunar.json.mapper.JavaContext
+import com.anjunar.json.mapper.annotations.{JsonbAnyProperty, JsonbGraphProperty, UseConverter}
+import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonObject, JsonString}
 import com.anjunar.json.mapper.provider.EntityProvider
 import com.anjunar.json.mapper.schema.{EntitySchema, SchemaProvider, VisibilityRule}
-import com.anjunar.json.mapper.{JavaContext, ObjectMapperProvider}
-import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonObject, JsonString}
 import com.anjunar.scala.universe.TypeResolver
 import com.anjunar.scala.universe.introspector.{AbstractProperty, AnnotationIntrospector, AnnotationProperty}
 import com.typesafe.scalalogging.Logger
 import jakarta.json.bind.annotation.{JsonbProperty, JsonbSubtype}
-import jakarta.persistence.{Entity, EntityGraph, Subgraph}
+import jakarta.persistence.{EntityGraph, Subgraph}
 
 class BeanSerializer extends Serializer[Any] {
 
@@ -17,11 +17,11 @@ class BeanSerializer extends Serializer[Any] {
 
   override def serialize(input: Any, context: JavaContext): JsonNode = {
     val start = System.nanoTime()
-    
+
     val introspectStart = System.nanoTime()
     val beanModel = AnnotationIntrospector.create(context.resolvedClass, classOf[JsonbProperty])
     val introspectEnd = System.nanoTime()
-    
+
     val nodes = new java.util.LinkedHashMap[String, JsonNode]()
     val json = new JsonObject(nodes)
 
@@ -37,11 +37,11 @@ class BeanSerializer extends Serializer[Any] {
 
     val properties = beanModel.properties
     var index = 0
-    
+
     var graphFilterTime = 0L
     var schemaVisibilityTime = 0L
     var propertySerializeTime = 0L
-    
+
     val ruleCache = new java.util.HashMap[Class[? <: VisibilityRule[?]], VisibilityRule[Any]]()
 
     val loopStart = System.nanoTime()
@@ -51,11 +51,12 @@ class BeanSerializer extends Serializer[Any] {
 
       val graphCheckStart = System.nanoTime()
       val skipByGraph =
-        !isAnyProperty &&
+        (!isAnyProperty &&
           property.name != "links" &&
           classOf[EntityProvider].isAssignableFrom(context.resolvedClass.raw) &&
           context.graph != null &&
-          !isSelectedByGraph(context, property)
+          !isSelectedByGraph(context, property)) ||
+          isJsonGraphProperty(property)
       graphFilterTime += (System.nanoTime() - graphCheckStart)
 
       if (skipByGraph) {
@@ -84,9 +85,9 @@ class BeanSerializer extends Serializer[Any] {
             val visible = visibilityRule == null || visibilityRule.isVisible(input, property)
             val isVisibleEnd = System.nanoTime()
             schemaVisibilityTime += (isVisibleEnd - schemaVisibilityStart)
-            
+
             if ((isVisibleEnd - isVisibleStart) > 1000000) { // > 1ms
-               log.info(s"Rule ${if (visibilityRule != null) visibilityRule.getClass.getSimpleName else "null"} for ${property.name} took ${(isVisibleEnd - isVisibleStart) / 1000000.0}%.2fms")
+              log.info(s"Rule ${if (visibilityRule != null) visibilityRule.getClass.getSimpleName else "null"} for ${property.name} took ${(isVisibleEnd - isVisibleStart) / 1000000.0}%.2fms")
             }
 
             if (!visible) {
@@ -130,7 +131,7 @@ class BeanSerializer extends Serializer[Any] {
 
     val totalEnd = System.nanoTime()
     val totalMs = (totalEnd - start) / 1000000.0
-    
+
     // Log if significant (e.g. > 10ms) or if it's a root object
     if (totalMs > 10 || context.parent == null) {
       log.info(f"Serialization of ${context.resolvedClass.raw.getSimpleName} took $totalMs%.2fms breakdown: " +
@@ -181,11 +182,11 @@ class BeanSerializer extends Serializer[Any] {
   }
 
   private def serializeAnyProperty(
-    input: Any,
-    context: JavaContext,
-    nodes: java.util.LinkedHashMap[String, JsonNode],
-    property: AnnotationProperty
-  ): Unit = {
+                                    input: Any,
+                                    context: JavaContext,
+                                    nodes: java.util.LinkedHashMap[String, JsonNode],
+                                    property: AnnotationProperty
+                                  ): Unit = {
     val value =
       try {
         property.get(input.asInstanceOf[AnyRef])
@@ -274,6 +275,15 @@ class BeanSerializer extends Serializer[Any] {
   }
 
   private val attributeNamesCache = new java.util.WeakHashMap[Any, java.util.Set[String]]()
+
+  private def isJsonGraphProperty(property: AnnotationProperty): Boolean = {
+    val graphProperty = property.findAnnotation(classOf[JsonbGraphProperty])
+    if (graphProperty == null) {
+      false
+    } else {
+      graphProperty.transitive()
+    }
+  }
 
   private def isSelectedByGraph(context: JavaContext, property: AnnotationProperty): Boolean = {
     val currentContainer = resolveContainer(context)
