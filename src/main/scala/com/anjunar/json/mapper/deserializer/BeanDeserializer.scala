@@ -39,11 +39,9 @@ class BeanDeserializer extends Deserializer[Any] {
             index += 1
           } else if (context.instance != null && context.instance.isInstanceOf[EntityProvider] && context.instance.asInstanceOf[EntityProvider].version > -1L) {
             if (
-              (property.name != "links" &&
+              property.name != "links" &&
                 classOf[EntityProvider].isAssignableFrom(context.resolvedClass.raw) &&
-                context.graph != null &&
-                !isSelectedByGraph(context, property)) ||
-                isJsonGraphProperty(property)
+                (! isJsonGraphProperty(property) && context.graph != null && !isSelectedByGraph(context, property))
             ) {
               index += 1
             } else {

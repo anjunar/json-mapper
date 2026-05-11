@@ -51,12 +51,11 @@ class BeanSerializer extends Serializer[Any] {
 
       val graphCheckStart = System.nanoTime()
       val skipByGraph =
-        (!isAnyProperty &&
+        !isAnyProperty &&
           property.name != "links" &&
           classOf[EntityProvider].isAssignableFrom(context.resolvedClass.raw) &&
-          context.graph != null &&
-          !isSelectedByGraph(context, property)) ||
-          isJsonGraphProperty(property)
+          (! isJsonGraphProperty(property) && context.graph != null && !isSelectedByGraph(context, property))
+
       graphFilterTime += (System.nanoTime() - graphCheckStart)
 
       if (skipByGraph) {
