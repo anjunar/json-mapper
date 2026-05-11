@@ -28,7 +28,7 @@ They are great fits for many workloads, but they tend to be less ergonomic when 
 Add the library to your `build.sbt`:
 
 ```scala
-libraryDependencies += "com.anjunar" %% "json-mapper" % "1.0.0"
+libraryDependencies += "com.anjunar" %% "json-mapper" % "1.1.1"
 ```
 
 ## Example
@@ -137,7 +137,7 @@ Notes:
 The current project settings are defined in `build.sbt`:
 
 - Scala: `3.8.3`
-- Version: `1.0.0`
+- Version: `1.1.1`
 - Organization: `com.anjunar`
 
 ## Core API
