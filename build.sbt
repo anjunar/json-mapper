@@ -1,6 +1,6 @@
 import com.jsuereth.sbtpgp.PgpKeys._
 
-ThisBuild / version := "1.1.2-SNAPSHOT"
+ThisBuild / version := "1.1.3"
 ThisBuild / organization := "com.anjunar"
 ThisBuild / organizationName := "Anjunar"
 ThisBuild / organizationHomepage := Some(url("https://github.com/anjunar"))
@@ -43,7 +43,7 @@ lazy val root = (project in file("."))
     name := "json-mapper",
     moduleName := "json-mapper",
     libraryDependencies ++= Seq(
-      "com.anjunar" %% "scala-universe" % "1.0.1-SNAPSHOT",
+      "com.anjunar" %% "scala-universe" % "1.0.2",
       "com.google.guava" % "guava" % "33.5.0-jre",
       "jakarta.json.bind" % "jakarta.json.bind-api" % "3.0.1",
       "jakarta.persistence" % "jakarta.persistence-api" % "3.2.0",

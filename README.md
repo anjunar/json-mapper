@@ -28,7 +28,7 @@ They are great fits for many workloads, but they tend to be less ergonomic when 
 Add the library to your `build.sbt`:
 
 ```scala
-libraryDependencies += "com.anjunar" %% "json-mapper" % "1.1.1"
+libraryDependencies += "com.anjunar" %% "json-mapper" % "1.1.3"
 ```
 
 ## Example
