@@ -111,7 +111,9 @@ class BeanDeserializer extends Deserializer[Any] {
 
     handledNames.add(resolveJsonName(property))
 
-    if (classOf[DTO].isAssignableFrom(propertyType)) {
+    if (property.findAnnotation(classOf[UseConverter]) != null) {
+      handleNormalProperty(node, property, context, oldValue)
+    } else if (classOf[DTO].isAssignableFrom(propertyType)) {
       handleEntityProperty(node, property, context, oldValue, propertyType)
     } else if (classOf[java.util.Collection[?]].isAssignableFrom(propertyType)) {
       handleCollectionProperty(node, property, context, oldValue)

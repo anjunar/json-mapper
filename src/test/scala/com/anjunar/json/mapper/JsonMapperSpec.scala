@@ -1,9 +1,10 @@
 package com.anjunar.json.mapper
 
-import com.anjunar.json.mapper.annotations.JsonbAnyProperty
+import com.anjunar.json.mapper.annotations.{JsonbAnyProperty, UseConverter}
+import com.anjunar.json.mapper.converter.JacksonJsonConverter
 import com.anjunar.json.mapper.intermediate.JsonParser
 import com.anjunar.json.mapper.provider.DTO
-import com.anjunar.scala.universe.TypeResolver
+import com.anjunar.scala.universe.{ResolvedClass, TypeResolver}
 import jakarta.json.bind.annotation.JsonbProperty
 import jakarta.validation.executable.ExecutableValidator
 import jakarta.validation.metadata.BeanDescriptor
@@ -126,6 +127,22 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     result.tags.size() shouldBe 2
     result.tags.get(0).label shouldBe "alpha"
     result.tags.get(1).label shouldBe "beta"
+  }
+
+  test("deserialize should apply a property converter before DTO handling") {
+    val profile = new ConvertedProfileDto
+
+    val result = JsonMapper.deserialize(
+      JsonParser.parse("""{"primaryTag":"converted"}"""),
+      profile,
+      TypeResolver.resolve(classOf[ConvertedProfileDto]),
+      null,
+      nullLoader,
+      noInject,
+      emptyValidator
+    ).asInstanceOf[ConvertedProfileDto]
+
+    result.primaryTag.label shouldBe "converted"
   }
 
   test("deserialize should collect unknown properties into JsonAnyProperty map") {
@@ -253,4 +270,21 @@ class ProfileDto {
 
 class TagDto extends DTO {
   @(JsonbProperty @field) var label: String = null
+}
+
+class ConvertedProfileDto {
+  @(JsonbProperty @field)
+  @(UseConverter @field)(classOf[TagStringConverter])
+  var primaryTag: TagDto = null
+}
+
+class TagStringConverter extends JacksonJsonConverter {
+  override def toJson(input: Any, resolvedClass: ResolvedClass): String =
+    input.asInstanceOf[TagDto].label
+
+  override def toJava(json: String, resolvedClass: ResolvedClass): Any = {
+    val tag = new TagDto
+    tag.label = json
+    tag
+  }
 }

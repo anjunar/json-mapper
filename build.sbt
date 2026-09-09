@@ -1,6 +1,6 @@
 import com.jsuereth.sbtpgp.PgpKeys._
 
-ThisBuild / version := "1.1.3"
+ThisBuild / version := "1.1.4-SNAPSHOT"
 ThisBuild / organization := "com.anjunar"
 ThisBuild / organizationName := "Anjunar"
 ThisBuild / organizationHomepage := Some(url("https://github.com/anjunar"))
