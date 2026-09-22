@@ -11,6 +11,15 @@ import jakarta.validation.Validator
 
 object JsonMapper {
 
+  def prepare[T](jsonNode: JsonNode,
+                 entity: T,
+                 resolvedClass: ResolvedClass,
+                 graph: EntityGraph[?],
+                 loader: EntityLoader,
+                 inject: [X] => Class[X] => X,
+                 validator: Validator): PreparedChange[T] =
+    new PreparedChange(entity, jsonNode, resolvedClass, graph, loader, inject, validator)
+
   def deserialize(jsonNode: JsonNode,
                   instance: AnyRef,
                   resolvedClass: ResolvedClass,

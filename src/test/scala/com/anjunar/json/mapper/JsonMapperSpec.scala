@@ -204,6 +204,48 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     profile.name shouldBe null
   }
 
+  test("a prepared change leaves the entity untouched until it is applied once") {
+    val profile = new ProfileDto
+    profile.name = "Original"
+
+    val change = JsonMapper.prepare(
+      JsonParser.parse("""{"name": "Updated", "nickname": "PJ"}"""),
+      profile,
+      TypeResolver.resolve(classOf[ProfileDto]),
+      null,
+      nullLoader,
+      noInject,
+      emptyValidator
+    )
+
+    change.getEntity() shouldBe profile
+    profile.name shouldBe "Original"
+    change.isApplied shouldBe false
+
+    change.applyChanges() shouldBe profile
+    profile.name shouldBe "Updated"
+    profile.nickname shouldBe "PJ"
+    change.isApplied shouldBe true
+
+    an[IllegalStateException] should be thrownBy change.applyChanges()
+  }
+
+  test("applying a prepared change reports validation errors without writing the invalid field") {
+    val profile = new ProfileDto
+    val change = JsonMapper.prepare(
+      JsonParser.parse("""{"name": "forbidden"}"""),
+      profile,
+      TypeResolver.resolve(classOf[ProfileDto]),
+      null,
+      nullLoader,
+      noInject,
+      validatorRejecting("name", "must not be forbidden")
+    )
+
+    an[ErrorRequestException] should be thrownBy change.applyChanges()
+    profile.name shouldBe null
+  }
+
   private val noInject: [T] => Class[T] => T =
     [T] => (_: Class[T]) => null.asInstanceOf[T]
 
