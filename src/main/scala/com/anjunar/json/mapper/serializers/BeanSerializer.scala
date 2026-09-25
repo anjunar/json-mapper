@@ -7,25 +7,17 @@ import com.anjunar.json.mapper.provider.EntityProvider
 import com.anjunar.json.mapper.schema.{EntitySchema, SchemaProvider, VisibilityRule}
 import com.anjunar.scala.universe.TypeResolver
 import com.anjunar.scala.universe.introspector.{AbstractProperty, AnnotationIntrospector, AnnotationProperty}
-import com.typesafe.scalalogging.Logger
 import jakarta.json.bind.annotation.{JsonbProperty, JsonbSubtype}
 import jakarta.persistence.{EntityGraph, Subgraph}
 
 class BeanSerializer extends Serializer[Any] {
 
-  private val log = Logger(classOf[BeanSerializer])
-
   override def serialize(input: Any, context: JavaContext): JsonNode = {
-    val start = System.nanoTime()
-
-    val introspectStart = System.nanoTime()
     val beanModel = AnnotationIntrospector.create(context.resolvedClass, classOf[JsonbProperty])
-    val introspectEnd = System.nanoTime()
 
     val nodes = new java.util.LinkedHashMap[String, JsonNode]()
     val json = new JsonObject(nodes)
 
-    val companionStart = System.nanoTime()
     val companion = TypeResolver.companionInstance[AnyRef](context.resolvedClass.raw)
     val schemaProvider =
       if (companion != null && classOf[SchemaProvider[?]].isInstance(companion)) {
@@ -33,40 +25,29 @@ class BeanSerializer extends Serializer[Any] {
       } else {
         null
       }
-    val companionEnd = System.nanoTime()
 
     val properties = beanModel.properties
     var index = 0
 
-    var graphFilterTime = 0L
-    var schemaVisibilityTime = 0L
-    var propertySerializeTime = 0L
-
     val ruleCache = new java.util.HashMap[Class[? <: VisibilityRule[?]], VisibilityRule[Any]]()
 
-    val loopStart = System.nanoTime()
     while (index < properties.length) {
       val property = properties(index)
       val isAnyProperty = property.findAnnotation(classOf[JsonbAnyProperty]) != null
 
-      val graphCheckStart = System.nanoTime()
       val skipByGraph =
         !isAnyProperty &&
           property.name != "links" &&
           classOf[EntityProvider].isAssignableFrom(context.resolvedClass.raw) &&
           (! isJsonGraphProperty(property) && context.graph != null && !isSelectedByGraph(context, property))
 
-      graphFilterTime += (System.nanoTime() - graphCheckStart)
-
       if (skipByGraph) {
         index += 1
       } else {
         if (schemaProvider != null) {
-          val schemaVisibilityStart = System.nanoTime()
           val schemaProperty = schemaProvider.schema.properties.get(property.name).orNull
 
           if (schemaProperty == null) {
-            schemaVisibilityTime += (System.nanoTime() - schemaVisibilityStart)
             index += 1
           } else {
             val visibilityRule =
@@ -80,43 +61,29 @@ class BeanSerializer extends Serializer[Any] {
                 rule
               }
 
-            val isVisibleStart = System.nanoTime()
             val visible = visibilityRule == null || visibilityRule.isVisible(input, property)
-            val isVisibleEnd = System.nanoTime()
-            schemaVisibilityTime += (isVisibleEnd - schemaVisibilityStart)
-
-            if ((isVisibleEnd - isVisibleStart) > 1000000) { // > 1ms
-              log.info(s"Rule ${if (visibilityRule != null) visibilityRule.getClass.getSimpleName else "null"} for ${property.name} took ${(isVisibleEnd - isVisibleStart) / 1000000.0}%.2fms")
-            }
 
             if (!visible) {
               index += 1
             } else {
-              val propSerStart = System.nanoTime()
               if (isAnyProperty) {
                 serializeAnyProperty(input, context, nodes, property)
               } else {
                 serializeProperty(input, context, nodes, property)
               }
-              propertySerializeTime += (System.nanoTime() - propSerStart)
               index += 1
             }
           }
         } else {
-          val propSerStart = System.nanoTime()
           if (isAnyProperty) {
             serializeAnyProperty(input, context, nodes, property)
           } else {
             serializeProperty(input, context, nodes, property)
           }
-          propertySerializeTime += (System.nanoTime() - propSerStart)
           index += 1
         }
       }
     }
-    val loopEnd = System.nanoTime()
-
-    val typeMetadataStart = System.nanoTime()
     if (!json.value.isEmpty) {
       val subtype = input.getClass.getAnnotation(classOf[JsonbSubtype])
       val typeProperty = if (subtype != null) {
@@ -126,20 +93,6 @@ class BeanSerializer extends Serializer[Any] {
       }
       json.value.putIfAbsent("@type", typeProperty)
     }
-    val typeMetadataEnd = System.nanoTime()
-
-    val totalEnd = System.nanoTime()
-    val totalMs = (totalEnd - start) / 1000000.0
-
-    // Log if significant (e.g. > 10ms) or if it's a root object
-    if (totalMs > 10 || context.parent == null) {
-      log.info(f"Serialization of ${context.resolvedClass.raw.getSimpleName} took $totalMs%.2fms breakdown: " +
-        f"Introspect: ${(introspectEnd - introspectStart) / 1000000.0}%.2fms, " +
-        f"Companion/Schema: ${(companionEnd - companionStart) / 1000000.0}%.2fms, " +
-        f"Loop Total: ${(loopEnd - loopStart) / 1000000.0}%.2fms (GraphCheck: ${graphFilterTime / 1000000.0}%.2fms, SchemaVis: ${schemaVisibilityTime / 1000000.0}%.2fms, PropSer: ${propertySerializeTime / 1000000.0}%.2fms), " +
-        f"TypeMetadata: ${(typeMetadataEnd - typeMetadataStart) / 1000000.0}%.2fms")
-    }
-
     json
   }
 

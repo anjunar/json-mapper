@@ -1,165 +1,27 @@
-# json-mapper
+# JSON Mapper
 
-A JSON mapping library focused on object graphs, in-place deserialization, and structured domain binding.
+JSON for applications with a domain model. Deserialization merges into the objects you already have, so an update
+touches what changed and keeps identity, references and relations intact.
 
-`json-mapper` is a Scala 3 library for serializing and deserializing object graphs to and from JSON. It is designed for applications that need more than plain JSON conversion, especially when JSON needs to be merged into existing domain objects instead of creating fresh instances every time.
+| Version | Platform | Scala | License |
+| --- | --- | --- | --- |
+| 1.1.5 | JVM | 3.3 | MIT |
 
-## Why This Library?
-
-Most JSON libraries such as Jackson or circe focus on:
-
-- simple serialization and deserialization
-- stateless mapping
-
-They are great fits for many workloads, but they tend to be less ergonomic when your application depends on:
-
-- existing object graphs
-- partial updates
-- domain-driven models
-
-`json-mapper` is designed for:
-
-- updating existing objects
-- mapping complex graphs
-- integrating with domain logic
+Documentation: [English](https://docs.anjunar.com/en/json-mapper) · [Deutsch](https://docs.anjunar.com/de/json-mapper)
+Website: [English](https://anjunar.com/en/json-mapper) · [Deutsch](https://anjunar.com/de/json-mapper)
 
 ## Installation
 
-Add the library to your `build.sbt`:
+One artifact. It brings [Scala Universe](https://github.com/anjunar/scala-universe) along, which resolves the types
+the mapper works with.
 
 ```scala
-libraryDependencies += "com.anjunar" %% "json-mapper" % "1.1.3"
+libraryDependencies += "com.anjunar" %% "json-mapper" % "1.1.5"
 ```
 
-## Example
+## First example
 
-At its core, the library is built around updating an existing object graph:
-
-```scala
-mapper.deserialize(json, existingObject)
-```
-
-## Key Features
-
-- in-place deserialization into existing instances
-- support for nested object graphs
-- collection handling
-- validation integration with aggregated error reporting
-- custom converters
-- support for nested DTOs, maps, UUIDs, locales, and temporal types
-- optional integration with `EntityGraph`
-
-## Core Idea
-
-Instead of creating new objects every time, `json-mapper` merges JSON into existing domain objects.
-
-This enables:
-
-- persistence integration
-- domain consistency
-- efficient updates
-
-## Use Cases
-
-- REST backends with entity graphs
-- domain-driven applications
-- partial updates with PATCH-like behavior
-- UI to backend synchronization
-
-## When Should You Use It?
-
-Use it if:
-
-- you work with existing domain objects
-- you need graph updates instead of full replacement
-- you build stateful backend systems
-
-Avoid it if:
-
-- you only need simple JSON parsing
-- immutability is your primary design principle
-
-## Positioning
-
-- vs Jackson: better graph handling for existing instances and update-heavy flows
-- vs circe or zio-json: not purely functional, but often more practical for stateful systems
-- vs ORM mappers: focused on JSON mapping, not persistence
-
-## Build
-
-This project uses `sbt`.
-
-```bash
-sbt compile
-sbt test
-```
-
-## Publish To Maven Central
-
-This project is configured for publishing through the Sonatype Central Portal.
-
-Before publishing, make sure you have:
-
-- a verified Sonatype namespace for `com.anjunar`
-- a Sonatype Central user token configured locally
-- a public GPG key uploaded to a public keyserver
-- `gpg` installed, or `GPG_COMMAND` pointing to your `gpg` executable
-
-Local credentials can be configured in `~/.sbt/1.0/credentials.sbt`:
-
-```scala
-credentials += Credentials(Path.userHome / ".sbt" / "sonatype_central_credentials")
-```
-
-And in `~/.sbt/sonatype_central_credentials`:
-
-```text
-host=central.sonatype.com
-user=<sonatype-user>
-password=<sonatype-token>
-```
-
-Release flow:
-
-```bash
-sbt publishSigned
-sbt sonaUpload
-sbt sonaRelease
-```
-
-Notes:
-
-- Releases are staged locally first and then uploaded to the Central Portal.
-- Snapshot versions publish to `https://central.sonatype.com/repository/maven-snapshots/`.
-- On Windows, the build automatically falls back to `C:/Program Files/GnuPG/bin/gpg.exe` if it exists, so no wrapper script is needed.
-- This is a single-module build, so `publish / skip := true` is intentionally not set on the root project.
-
-The current project settings are defined in `build.sbt`:
-
-- Scala: `3.8.3`
-- Version: `1.1.1`
-- Organization: `com.anjunar`
-
-## Core API
-
-The main entry point is [`JsonMapper`](src/main/scala/com/anjunar/json/mapper/JsonMapper.scala).
-
-It exposes two operations:
-
-- `JsonMapper.serialize(...)`
-- `JsonMapper.deserialize(...)`
-
-The library expects a resolved type from `scala-universe`:
-
-```scala
-import com.anjunar.scala.universe.TypeResolver
-
-val resolvedClass = TypeResolver.resolve(classOf[MyDto])
-```
-
-## Simple DTO Example
-
-The mapper works well with mutable DTO-style classes.
+A DTO names its JSON properties with `@JsonbProperty`:
 
 ```scala
 import com.anjunar.json.mapper.provider.DTO
@@ -175,45 +37,12 @@ class UserDto extends DTO {
   @(JsonbProperty @field) var name: String = null
   @(JsonbProperty @field) var age: Int = 0
   @(JsonbProperty @field) var address: AddressDto = null
-  @(JsonbProperty @field) var tags: java.util.List[AddressDto] = new java.util.ArrayList[AddressDto]()
+  @(JsonbProperty @field) var tags: java.util.List[String] = new java.util.ArrayList[String]()
 }
 ```
 
-## Serialize an Object
-
-```scala
-import com.anjunar.json.mapper.JsonMapper
-import com.anjunar.scala.universe.TypeResolver
-
-val user = new UserDto
-user.name = "Patrick"
-user.age = 34
-
-val address = new AddressDto
-address.city = "Berlin"
-address.zipCode = "10115"
-user.address = address
-
-val json =
-  JsonMapper.serialize(
-    user,
-    TypeResolver.resolve(classOf[UserDto]),
-    null,                                  // EntityGraph
-    [T] => (_: Class[T]) => null.asInstanceOf[T] // dependency injection hook
-  )
-
-println(json)
-```
-
-Example output:
-
-```json
-{"name":"Patrick","age":34,"address":{"city":"Berlin","zipCode":"10115","@type":"AddressDto"},"@type":"UserDto"}
-```
-
-## Deserialize into an Existing Instance
-
-Deserialization updates an existing object instance instead of always creating a brand-new one.
+The target already exists, loaded from the database or held in memory. The JSON changes two properties; everything
+else on the object stays.
 
 ```scala
 import com.anjunar.json.mapper.{EntityLoader, JsonMapper}
@@ -221,163 +50,104 @@ import com.anjunar.json.mapper.intermediate.JsonParser
 import com.anjunar.scala.universe.TypeResolver
 import jakarta.validation.Validation
 
-import java.util.UUID
-
-val json =
-  """
-    {
-      "name": "Updated User",
-      "age": 35,
-      "address": {
-        "city": "Hamburg",
-        "zipCode": "20095"
-      }
-    }
-  """
-
-val target = new UserDto
-target.address = new AddressDto
-
 val validator = Validation.buildDefaultValidatorFactory().getValidator
+val loader: EntityLoader = (id, clazz) => entityManager.find(clazz, id)
+val inject = [T] => (clazz: Class[T]) => clazz.getDeclaredConstructor().newInstance()
 
-val loader = new EntityLoader {
-  override def load(id: UUID, clazz: Class[?]): Any = null
-}
+val user = loadUser()             // an existing UserDto
+val address = user.address
 
 JsonMapper.deserialize(
-  JsonParser.parse(json),
-  target,
-  TypeResolver.resolve(classOf[UserDto]),
-  null,                                  // EntityGraph
-  loader,
-  [T] => (_: Class[T]) => null.asInstanceOf[T],
-  validator
+  JsonParser.parse("""{"name": "Grace", "address": {"city": "Hamburg"}}"""),
+  user, TypeResolver.resolve(classOf[UserDto]), null, loader, inject, validator
 )
 
-println(target.name)         // Updated User
-println(target.address.city) // Hamburg
+println(user.name)                // Grace
+println(user.address eq address)  // true: the same address, now in Hamburg
 ```
 
-## Validation Errors
-
-During deserialization, the mapper collects validation failures and throws a single `ErrorRequestException`.
+The other direction, for a user Patrick, 34, living in Berlin 10115:
 
 ```scala
-import com.anjunar.json.mapper.{ErrorRequestException, JsonMapper}
-import com.anjunar.json.mapper.intermediate.JsonParser
-import com.anjunar.scala.universe.TypeResolver
-
-try {
-  JsonMapper.deserialize(
-    JsonParser.parse("""{"name": null}"""),
-    target,
-    TypeResolver.resolve(classOf[UserDto]),
-    null,
-    loader,
-    [T] => (_: Class[T]) => null.asInstanceOf[T],
-    validator
-  )
-} catch {
-  case error: ErrorRequestException =>
-    error.errors.forEach { request =>
-      println(s"path=${request.path}, message=${request.message}")
-    }
-}
+JsonMapper.serialize(user, TypeResolver.resolve(classOf[UserDto]), null, inject)
 ```
-
-## Custom Converters
-
-Custom converters can be attached with `@UseConverter`. The default converter implementation is `JacksonJsonConverter`.
-
-```scala
-import com.anjunar.json.mapper.annotations.UseConverter
-import com.anjunar.json.mapper.converter.JacksonJsonConverter
-import com.anjunar.scala.universe.ResolvedClass
-
-class MoneyConverter extends JacksonJsonConverter {
-  override def toJson(input: Any, resolvedClass: ResolvedClass): String = {
-    val money = input.asInstanceOf[Money]
-    s"""{"amount":${money.amount},"currency":"${money.currency}"}"""
-  }
-
-  override def toJava(json: String, resolvedClass: ResolvedClass): Any = {
-    // parse the JSON string here and create a Money instance
-    Money(10, "EUR")
-  }
-}
-
-case class Money(amount: BigDecimal, currency: String)
-
-class InvoiceDto extends DTO {
-  @(UseConverter(classOf[MoneyConverter]) @field)
-  @(JsonbProperty @field)
-  var total: Money = null
-}
-```
-
-## Collect Unknown Properties
-
-Unknown JSON properties can be collected into a dedicated `Map[String, Any]` and flattened again during serialization.
-
-```scala
-import com.anjunar.json.mapper.annotations.JsonbAnyProperty
-import jakarta.json.bind.annotation.JsonbProperty
-import scala.annotation.meta.field
-
-class UserDto extends DTO {
-  @(JsonbProperty @field) var name: String = null
-  @(JsonbAnyProperty @field)
-  @(JsonbProperty @field)
-  var attributes: java.util.Map[String, Any] = new java.util.LinkedHashMap[String, Any]()
-}
-```
-
-Example input:
 
 ```json
-{"name":"Patrick","nickname":"Pat","score":7}
+{"name":"Patrick","age":34,"address":{"city":"Berlin","zipCode":"10115","@type":"AddressDto"},"@type":"UserDto"}
 ```
 
-After deserialization:
+`JsonMapper.prepare(...)` takes the same arguments as `deserialize` and returns a `PreparedChange`: the entity is
+available with `getEntity()`, and `applyChanges()` performs the merge once, later.
 
-- `name` is written to the regular bean property
-- `nickname` and `score` are stored in `attributes`
+## The principle
 
-During serialization, entries from `attributes` are emitted as normal top-level JSON properties again.
+**01 / Merge – In place, not new.** Nested objects and collections are updated where they are. Elements keep their
+identity by ID.
 
-## Notes
+**02 / Rules – The model decides what is visible.** A schema per entity lists its properties; a rule per property
+decides who may read and who may write it.
 
-- Serialization includes an `@type` property for non-empty objects.
-- `ObjectMapperProvider` configures Jackson with `DefaultScalaModule`.
-- Empty strings, empty collections, and `false` booleans may be omitted during serialization depending on the serializer behavior.
-- Collection properties should be initialized before deserialization.
-- For nested entity references, provide an `EntityLoader` implementation.
+**03 / Integrity – Validated, referenced, in sync.** Bean Validation per property, references loaded by ID, and both
+sides of a JPA relation kept consistent.
 
-## Project Structure
+## Contents
 
-```text
-src/main/scala/com/anjunar/json/mapper
-├── JsonMapper.scala
-├── ObjectMapperProvider.scala
-├── converter/
-├── deserializer/
-├── intermediate/
-├── provider/
-├── schema/
-└── serializers/
-```
+The basics work with plain DTOs. The domain pages add schemas, graphs and references for JPA entities.
 
-## Tests
+**Basics**
+- [Serializing](https://docs.anjunar.com/en/json-mapper/serialize) – which properties become JSON, and what the output looks like
+- [Deserializing in place](https://docs.anjunar.com/en/json-mapper/deserialize) – JSON merged into an instance you already have, collections included
+- [Validation](https://docs.anjunar.com/en/json-mapper/validation) – Bean Validation per property, and every violation in one exception
 
-The project already includes ScalaTest coverage for:
+**Domain models**
+- [Schemas and rules](https://docs.anjunar.com/en/json-mapper/schemas) – which properties an entity exposes, and who may read or write them
+- [Graphs and references](https://docs.anjunar.com/en/json-mapper/graphs) – `EntityGraph`s limit the output, an `EntityLoader` resolves references, relations stay in sync
+- [Converters and open properties](https://docs.anjunar.com/en/json-mapper/converters) – custom value formats, and JSON fields the class does not declare
 
-- JSON parsing
-- JSON generation
-- serializer and deserializer registry selection
-- end-to-end `JsonMapper` serialization and deserialization
+**Reference**
+- [API](https://docs.anjunar.com/en/json-mapper/api) – `JsonMapper`, the callbacks it takes and the annotations it reads
+- [Value types](https://docs.anjunar.com/en/json-mapper/types) – how each supported Java and Scala value is written and read
 
-Run the full suite with:
+## Limits
+
+- Mutable objects by design. The mapper writes into existing instances; it is not meant for immutable models.
+- Collection and map properties must hold an instance before deserialization; the mapper fills them and never
+  creates them. A `null` collection is an `IllegalStateException`. The same holds for a `@JsonbAnyProperty` map.
+- Validation errors are collected and thrown together as one `ErrorRequestException` – after the valid properties
+  were written. Deserialize managed entities inside a transaction and roll it back on that exception, or work on a
+  copy.
+- Serialization leaves out `null`, empty strings, empty collections and `false`, and adds `@type` (the simple class
+  name) to every non-empty object. Deserialization never reads `@type`; it always uses the declared type of the
+  property.
+
+## Development
+
+The build uses sbt 1; tests use ScalaTest.
 
 ```bash
 sbt test
 ```
+
+### Releasing
+
+Set `ThisBuild / version` in `build.sbt`, then sign, bundle and upload to the Sonatype Central Portal in one step.
+Without a version argument the scripts read the one in `build.sbt`, and they wait until Maven Central has published
+the release.
+
+```powershell
+.\scripts\publish-central.ps1
+```
+
+```bash
+scripts/publish-central.sh
+```
+
+Credentials come from `SONATYPE_CENTRAL_USERNAME` and `SONATYPE_CENTRAL_PASSWORD`, or from the lines `user=` and
+`password=` in `~/.sbt/sonatype_central_credentials`. `-PublishingType USER_MANAGED` (`PUBLISHING_TYPE=USER_MANAGED`)
+stops after validation so the release is published by hand in the portal; `-SkipPublishSigned`
+(`SKIP_PUBLISH_SIGNED=1`) uploads an existing staging directory again. Signing uses `GPG_COMMAND` when set, otherwise
+`C:/Program Files/GnuPG/bin/gpg.exe` if it exists, otherwise `gpg`.
+
+## License
+
+JSON Mapper is available under the [MIT License](LICENSE).
