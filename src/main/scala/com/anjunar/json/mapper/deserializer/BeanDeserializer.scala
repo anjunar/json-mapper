@@ -2,7 +2,7 @@ package com.anjunar.json.mapper.deserializer
 
 import com.anjunar.json.mapper.JsonContext
 import com.anjunar.json.mapper.annotations.{JsonbAnyProperty, JsonbGraphProperty, UseConverter}
-import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonNull, JsonObject, JsonString}
+import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonNull, JsonObject}
 import com.anjunar.json.mapper.provider.{DTO, EntityProvider}
 import com.anjunar.json.mapper.schema.{EntitySchema, SchemaProvider}
 import com.anjunar.scala.universe.introspector.{AnnotationIntrospector, AnnotationProperty}
@@ -11,7 +11,7 @@ import jakarta.json.bind.annotation.JsonbProperty
 import jakarta.persistence.*
 
 import java.lang.reflect.InvocationTargetException
-import java.util.UUID
+import java.util
 
 class BeanDeserializer extends Deserializer[Any] {
 
@@ -113,7 +113,7 @@ class BeanDeserializer extends Deserializer[Any] {
 
     if (property.findAnnotation(classOf[UseConverter]) != null) {
       handleNormalProperty(node, property, context, oldValue)
-    } else if (classOf[DTO].isAssignableFrom(propertyType)) {
+    } else if (classOf[DTO].isAssignableFrom(propertyType) || classOf[EntityProvider].isAssignableFrom(propertyType)) {
       handleEntityProperty(node, property, context, oldValue, propertyType)
     } else if (classOf[java.util.Collection[?]].isAssignableFrom(propertyType)) {
       handleCollectionProperty(node, property, context, oldValue)
@@ -151,7 +151,7 @@ class BeanDeserializer extends Deserializer[Any] {
 
     val deserialized = deserializePropertyValue(property, property.name, oldValue, context, json).asInstanceOf[java.util.Map[String, Any]]
 
-    context.checkForViolations(instance.getClass, property.name, targetMap, () => {
+    context.checkForViolations(instance.getClass, property.name, deserialized, () => {
       targetMap.clear()
       targetMap.putAll(deserialized)
     })
@@ -214,7 +214,7 @@ class BeanDeserializer extends Deserializer[Any] {
     val deserialized = deserializeValue(property.propertyType, property.name, existingCollection, context, node).asInstanceOf[java.util.Collection[Any]]
     val targetCollection = property.get(instance.asInstanceOf[AnyRef]).asInstanceOf[java.util.Collection[Any]]
 
-    context.checkForViolations(instance.getClass, property.name, targetCollection, () => {
+    context.checkForViolations(instance.getClass, property.name, deserialized, () => {
       targetCollection.clear()
       targetCollection.addAll(deserialized)
       synchronizeBidirectionalRelations(instance, property, targetCollection)
@@ -242,7 +242,7 @@ class BeanDeserializer extends Deserializer[Any] {
     val deserialized = deserializeValue(property.propertyType, property.name, existingMap, context, node).asInstanceOf[java.util.Map[String, Any]]
     val targetMap = property.get(instance.asInstanceOf[AnyRef]).asInstanceOf[java.util.Map[String, Any]]
 
-    context.checkForViolations(instance.getClass, property.name, targetMap, () => {
+    context.checkForViolations(instance.getClass, property.name, deserialized, () => {
       targetMap.clear()
       targetMap.putAll(deserialized)
       synchronizeBidirectionalRelations(instance, property, targetMap)
@@ -263,45 +263,58 @@ class BeanDeserializer extends Deserializer[Any] {
     val instance = context.instance
 
     if (node.isInstanceOf[JsonNull]) {
-      context.checkForViolations(instance.getClass, property.name, null, () => property.set(instance.asInstanceOf[AnyRef], null))
+      context.checkForViolations(instance.getClass, property.name, null, () => setPropertyAndSynchronize(instance, property, oldValue, null))
       return
     }
 
-    if (oldValue != null) {
-      val value = deserializeValue(property.propertyType, property.name, oldValue, context, node)
-      context.checkForViolations(instance.getClass, property.name, value, () => setPropertyAndSynchronize(instance, property, value))
-      return
+    val jsonObject = node match {
+      case value: JsonObject => value
+      case _ => throw new IllegalArgumentException(s"Relationship '${property.name}' must be an object or null")
     }
-
-    val jsonObject = node.asInstanceOf[JsonObject]
     val jsonId = jsonObject.value.get("id")
+    val target =
+      if (jsonId != null) {
+        EntityReferences.load(jsonId, propertyType, context)
+      } else if (oldValue != null) {
+        oldValue
+      } else {
+        propertyType.getConstructor().newInstance()
+      }
 
-    if (jsonId != null && jsonId.isInstanceOf[JsonString]) {
-      val id = UUID.fromString(jsonId.value.toString)
-      val entity = context.loader.load(id, propertyType)
-      if (entity != null) {
-        context.checkForViolations(instance.getClass, property.name, entity, () => property.set(instance.asInstanceOf[AnyRef], entity))
-        return
+    val value = deserializeValue(property.propertyType, property.name, target, context, node)
+    context.checkForViolations(instance.getClass, property.name, value, () => setPropertyAndSynchronize(instance, property, oldValue, value))
+  }
+
+  private def setPropertyAndSynchronize(owner: Any, property: AnnotationProperty, previous: Any, value: Any): Unit = {
+    property.set(owner.asInstanceOf[AnyRef], value)
+    if (previous != null && (previous.asInstanceOf[AnyRef] ne value.asInstanceOf[AnyRef])) {
+      disconnectToOne(owner, property, previous)
+    }
+    synchronizeBidirectionalRelations(owner, property, value)
+  }
+
+  private def disconnectToOne(owner: Any, property: AnnotationProperty, previous: Any): Unit = {
+    val oneToOne = property.findAnnotation(classOf[OneToOne])
+    if (oneToOne != null) {
+      val otherSide =
+        if (!oneToOne.mappedBy().isBlank) {
+          AnnotationIntrospector.createWithType(previous.getClass, classOf[JsonbProperty]).findProperty(oneToOne.mappedBy())
+        } else {
+          resolveInverseOneToOne(previous, property.name, owner.getClass)
+        }
+      if (otherSide != null && otherSide.isWriteable &&
+          (otherSide.get(previous.asInstanceOf[AnyRef]).asInstanceOf[AnyRef] eq owner.asInstanceOf[AnyRef])) {
+        otherSide.set(previous.asInstanceOf[AnyRef], null)
+      }
+    } else if (property.findAnnotation(classOf[ManyToOne]) != null) {
+      val inverse = resolveInverseOneToMany(previous, property.name, owner.getClass)
+      if (inverse != null) {
+        val collection = inverse.get(previous.asInstanceOf[AnyRef]).asInstanceOf[util.Collection[Any]]
+        if (collection != null) {
+          collection.remove(owner)
+        }
       }
     }
-
-    val value = deserializeNewEntity(propertyType, property, context, node)
-    context.checkForViolations(instance.getClass, property.name, value, () => setPropertyAndSynchronize(instance, property, value))
-  }
-
-  private def deserializeNewEntity(
-                                    propertyType: Class[?],
-                                    property: AnnotationProperty,
-                                    context: JsonContext,
-                                    node: JsonNode
-                                  ): Any = {
-    val newInstance = propertyType.getConstructor().newInstance()
-    deserializeValue(property.propertyType, property.name, newInstance, context, node)
-  }
-
-  private def setPropertyAndSynchronize(owner: Any, property: AnnotationProperty, value: Any): Unit = {
-    property.set(owner.asInstanceOf[AnyRef], value)
-    synchronizeBidirectionalRelations(owner, property, value)
   }
 
   private def synchronizeBidirectionalRelations(owner: Any, property: AnnotationProperty, value: Any): Unit = {

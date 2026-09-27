@@ -2,10 +2,8 @@ package com.anjunar.json.mapper.deserializer
 
 import com.anjunar.json.mapper.JsonContext
 import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonNode, JsonObject}
-import com.anjunar.json.mapper.provider.{DTO, EntityProvider}
+import com.anjunar.json.mapper.provider.EntityProvider
 import com.anjunar.scala.universe.TypeResolver
-
-import java.util.UUID
 
 class ArrayDeserializer extends Deserializer[java.util.Collection[?]] {
 
@@ -29,33 +27,14 @@ class ArrayDeserializer extends Deserializer[java.util.Collection[?]] {
           val elementNode = iterator.next()
           elementNode match {
             case node: JsonObject =>
-              val entityCollection =
-                context.instance match {
-                  case value: java.util.Collection[?] => value.asInstanceOf[java.util.Collection[EntityProvider]]
-                  case _ => null
-                }
               val idNode = node.value.get("id")
-
               val entity =
-                if (elementResolvedClass.raw == classOf[Object] || elementResolvedClass.raw == classOf[java.lang.Object]) {
+                if (elementResolvedClass.raw == classOf[Object]) {
                   null
                 } else if (idNode == null) {
                   elementResolvedClass.raw.getConstructor().newInstance()
                 } else {
-                  val entityId = UUID.fromString(idNode.value.toString)
-                  val existing =
-                    if (entityCollection == null) java.util.Optional.empty[EntityProvider]()
-                    else entityCollection.stream().filter(entityProvider => entityProvider.id == entityId).findFirst()
-                  if (existing.isPresent) {
-                    existing.get()
-                  } else {
-                    val value = context.loader.load(entityId, elementResolvedClass.raw)
-                    if (value == null) {
-                      elementResolvedClass.raw.getConstructor().newInstance()
-                    } else {
-                      value
-                    }
-                  }
+                  EntityReferences.load(idNode, elementResolvedClass.raw, context)
                 }
 
               val jsonContext = new JsonContext(

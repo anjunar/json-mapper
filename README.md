@@ -108,6 +108,32 @@ The basics work with plain DTOs. The domain pages add schemas, graphs and refere
 - [API](https://docs.anjunar.com/en/json-mapper/api) – `JsonMapper`, the callbacks it takes and the annotations it reads
 - [Value types](https://docs.anjunar.com/en/json-mapper/types) – how each supported Java and Scala value is written and read
 
+## Resolving relationship input
+
+A to-one property declared as `EntityProvider` or `DTO` accepts an object or `null`.
+Omitting the property preserves its value; `null` clears it if validation permits.
+An object without `id` merges into the current value, or creates an instance through its public no-argument
+constructor when the current value is null.
+
+An explicit `id` must be a UUID string in canonical hyphenated form. It is resolved through `EntityLoader`,
+even when the same ID is already selected. The returned object replaces the old reference; it must have the
+declared type and, for `EntityProvider`, the requested ID. Returning null rejects the reference with
+`IllegalArgumentException`; exceptions from the loader propagate unchanged. The same checks apply to
+IDs in typed collections. Applications should load and authorize the referenced object in this callback.
+
+After resolution, supplied nested fields are merged using the target's schema rules, graph and validation.
+An ID is not permission to edit that target. Endpoints that accept only links to shared objects should
+reject fields other than `id` at their input boundary, and keep the target's property rules restrictive.
+
+Collection and map constraints are checked against the incoming contents before replacing their contents.
+The existing collection or map instance is retained. Replacing or clearing a to-one JPA relationship
+also disconnects its old inverse reference before synchronizing the new one.
+
+Version 1.1.6 corrects earlier behavior that ignored to-one `EntityProvider` IDs, retained an old
+to-one reference when its ID changed, bypassed loaders for existing collection members, and silently
+created a new object for an unresolved ID. Loaders must now resolve or reject every explicit ID.
+Nested fields on a newly resolved to-one reference now follow the same merge path as existing objects.
+
 ## Limits
 
 - Mutable objects by design. The mapper writes into existing instances; it is not meant for immutable models.
@@ -125,7 +151,7 @@ The basics work with plain DTOs. The domain pages add schemas, graphs and refere
 The build uses sbt 1; tests use ScalaTest.
 
 ```bash
-sbt test
+sbtn test
 ```
 
 ### Releasing
