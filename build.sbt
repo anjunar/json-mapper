@@ -1,6 +1,6 @@
 import com.jsuereth.sbtpgp.PgpKeys._
 
-ThisBuild / version := "1.1.5"
+ThisBuild / version := "1.1.6"
 ThisBuild / organization := "com.anjunar"
 ThisBuild / organizationName := "Anjunar"
 ThisBuild / organizationHomepage := Some(url("https://github.com/anjunar"))
@@ -51,6 +51,7 @@ lazy val root = (project in file("."))
       "tools.jackson.core" % "jackson-databind" % "3.1.1",
       "tools.jackson.module" %% "jackson-module-scala" % "3.1.1",
       "org.hibernate.orm" % "hibernate-core" % "7.2.6.Final",
-      "org.scalatest" %% "scalatest" % "3.2.20" % Test
+      "org.scalatest" %% "scalatest" % "3.2.20" % Test,
+      "org.hibernate.validator" % "hibernate-validator" % "9.1.4.Final" % Test
     )
   )
