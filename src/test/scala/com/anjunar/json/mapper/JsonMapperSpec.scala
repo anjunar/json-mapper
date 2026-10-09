@@ -5,7 +5,7 @@ import com.anjunar.json.mapper.converter.JacksonJsonConverter
 import com.anjunar.json.mapper.intermediate.JsonParser
 import com.anjunar.json.mapper.provider.DTO
 import com.anjunar.scala.universe.{ResolvedClass, TypeResolver}
-import jakarta.json.bind.annotation.JsonbProperty
+import jakarta.json.bind.annotation.{JsonbProperty, JsonbSubtype}
 import jakarta.validation.executable.ExecutableValidator
 import jakarta.validation.metadata.BeanDescriptor
 import jakarta.validation.{ConstraintViolation, Path, Validator}
@@ -127,6 +127,52 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     result.tags.size() shouldBe 2
     result.tags.get(0).label shouldBe "alpha"
     result.tags.get(1).label shouldBe "beta"
+  }
+
+  test("deserialize should instantiate declared subtypes in a collection") {
+    val holder = new PolymorphicHolder
+    val json = """{"fields":[{"@type":"TextFieldDto","key":"summary","value":"Hello"},
+                 {"@type":"FlagFieldDto","key":"visible","enabled":true}]}"""
+
+    JsonMapper.deserialize(JsonParser.parse(json), holder, TypeResolver.resolve(classOf[PolymorphicHolder]),
+      null, nullLoader, noInject, emptyValidator)
+
+    holder.fields.size() shouldBe 2
+    holder.fields.get(0).asInstanceOf[TextFieldDto].value shouldBe "Hello"
+    holder.fields.get(0).key shouldBe "summary"
+    holder.fields.get(1).asInstanceOf[FlagFieldDto].enabled shouldBe true
+  }
+
+  test("serialize should retain subtype properties in a collection") {
+    val holder = new PolymorphicHolder
+    val text = new TextFieldDto
+    text.key = "description"
+    text.value = "Saved Markdown"
+    holder.fields.add(text)
+    val flag = new FlagFieldDto
+    flag.key = "visible"
+    flag.enabled = true
+    holder.fields.add(flag)
+
+    val json = JsonParser.parse(JsonMapper.serialize(holder, TypeResolver.resolve(classOf[PolymorphicHolder]),
+      null, noInject)).asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonObject]
+    val fields = json.value.get("fields").asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonArray]
+    val serializedText = fields.value.get(0).asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonObject]
+    val serializedFlag = fields.value.get(1).asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonObject]
+
+    serializedText.getString("@type") shouldBe "TextFieldDto"
+    serializedText.getString("value") shouldBe "Saved Markdown"
+    serializedFlag.getString("@type") shouldBe "FlagFieldDto"
+    serializedFlag.value.get("enabled").value shouldBe true
+  }
+
+  test("deserialize should reject unregistered collection subtypes") {
+    val holder = new PolymorphicHolder
+    val json = """{"fields":[{"@type":"ProfileDto","key":"summary"}]}"""
+
+    an[IllegalArgumentException] should be thrownBy JsonMapper.deserialize(
+      JsonParser.parse(json), holder, TypeResolver.resolve(classOf[PolymorphicHolder]),
+      null, nullLoader, noInject, emptyValidator)
   }
 
   test("deserialize should apply a property converter before DTO handling") {
@@ -312,6 +358,24 @@ class ProfileDto {
 
 class TagDto extends DTO {
   @(JsonbProperty @field) var label: String = null
+}
+
+class PolymorphicHolder {
+  @(JsonbProperty @field) val fields: java.util.List[AbstractFieldDto] = new java.util.ArrayList[AbstractFieldDto]()
+}
+
+abstract class AbstractFieldDto {
+  @(JsonbProperty @field) var key: String = null
+}
+
+@JsonbSubtype(alias = "TextFieldDto", `type` = classOf[TextFieldDto])
+class TextFieldDto extends AbstractFieldDto {
+  @(JsonbProperty @field) var value: String = null
+}
+
+@JsonbSubtype(alias = "FlagFieldDto", `type` = classOf[FlagFieldDto])
+class FlagFieldDto extends AbstractFieldDto {
+  @(JsonbProperty @field) var enabled: Boolean = false
 }
 
 class ConvertedProfileDto {

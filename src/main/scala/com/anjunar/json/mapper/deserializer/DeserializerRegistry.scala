@@ -42,6 +42,8 @@ object DeserializerRegistry {
           new TemporalDeserializer
         } else if (classOf[UUID].isAssignableFrom(clazz)) {
           new UUIDDeserializer
+        } else if (NumberDeserializer.decimal(clazz)) {
+          new NumberDeserializer
         } else if (clazz == classOf[Object] || clazz == classOf[java.lang.Object]) {
           new StringDeserializer
         } else {

@@ -134,6 +134,11 @@ to-one reference when its ID changed, bypassed loaders for existing collection m
 created a new object for an unresolved ID. Loaders must now resolve or reject every explicit ID.
 Nested fields on a newly resolved to-one reference now follow the same merge path as existing objects.
 
+Version 1.1.7 reads numbers as the declared type also where the type resolver reports a boxed class: before, a
+whole number for a Scala `Int` (or `Short`, `Byte`, `Float`) property arrived as `Long` and failed with "argument type
+mismatch". It also supports `java.math.BigDecimal` and `scala.math.BigDecimal`: written with all digits and scale and
+never with an exponent, read from the digits of a JSON number or of a string such as `"120.00"`.
+
 ## Limits
 
 - Mutable objects by design. The mapper writes into existing instances; it is not meant for immutable models.
