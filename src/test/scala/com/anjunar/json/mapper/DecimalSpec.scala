@@ -84,13 +84,3 @@ object DecimalSpec {
     override def forExecutables(): ExecutableValidator = null
   }
 }
-
-class PriceDto {
-  @(JsonbProperty @field) var amount: java.math.BigDecimal = null
-  @(JsonbProperty @field) var rounded: java.math.BigDecimal = null
-  @(JsonbProperty @field) var total: scala.math.BigDecimal = null
-  @(JsonbProperty @field) var count: Int = 0
-  @(JsonbProperty @field) var ratio: Double = 0.0
-  @(JsonbProperty @field) var units: Long = 0L
-  @(JsonbProperty @field) var share: Double = 0.0
-}
