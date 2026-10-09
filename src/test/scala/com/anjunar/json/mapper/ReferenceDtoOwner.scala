@@ -20,3 +20,4 @@ import java.util.UUID
 class ReferenceDtoOwner {
   @JsonbProperty var address: ReferenceAddress = null
 }
+

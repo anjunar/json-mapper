@@ -23,3 +23,4 @@ class ConvertedProfileDto {
   @(UseConverter @field)(classOf[TagStringConverter])
   var primaryTag: TagDto = null
 }
+

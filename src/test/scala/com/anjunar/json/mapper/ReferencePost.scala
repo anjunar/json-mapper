@@ -24,3 +24,4 @@ class ReferencePost extends EntityProvider {
   @JsonbProperty @Size(max = 2) var reviewers: util.List[ReferenceAuthor] = new util.ArrayList[ReferenceAuthor]()
   @JsonbProperty @Size(max = 2) var labels: util.Map[String, String] = new util.LinkedHashMap[String, String]()
 }
+

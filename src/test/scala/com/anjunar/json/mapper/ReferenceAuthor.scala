@@ -34,3 +34,4 @@ object ReferenceAuthor extends SchemaProvider[ReferenceAuthor.Schema] {
     val posts = property(_.posts)
   }
 }
+

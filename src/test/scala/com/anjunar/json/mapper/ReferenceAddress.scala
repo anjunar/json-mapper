@@ -20,3 +20,4 @@ import java.util.UUID
 class ReferenceAddress extends DTO {
   @JsonbProperty var city: String = "Original"
 }
+

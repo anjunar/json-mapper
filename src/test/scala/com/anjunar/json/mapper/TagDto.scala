@@ -21,3 +21,4 @@ import scala.annotation.meta.field
 class TagDto extends DTO {
   @(JsonbProperty @field) var label: String = null
 }
+

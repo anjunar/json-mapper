@@ -28,3 +28,4 @@ class ProfileDto {
   @(JsonbProperty @field) var tags: java.util.List[TagDto] = new java.util.ArrayList[TagDto]()
   @(JsonbAnyProperty @field) @(JsonbProperty @field) var attributes: java.util.Map[String, Any] = new java.util.LinkedHashMap[String, Any]()
 }
+

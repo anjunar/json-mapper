@@ -344,3 +344,4 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     override def toString: String = pathValue
   }
 }
+

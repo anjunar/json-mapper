@@ -23,3 +23,4 @@ import scala.annotation.meta.field
 class FlagFieldDto extends AbstractFieldDto {
   @(JsonbProperty @field) var enabled: Boolean = false
 }
+

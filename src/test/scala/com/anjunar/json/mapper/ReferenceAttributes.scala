@@ -21,3 +21,4 @@ class ReferenceAttributes {
   @JsonbAnyProperty @JsonbProperty @Size(max = 1)
   var attributes: util.Map[String, Any] = new util.LinkedHashMap[String, Any]()
 }
+

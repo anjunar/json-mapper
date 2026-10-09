@@ -22,3 +22,4 @@ class ReferenceMember extends EntityProvider {
   @JsonbProperty var version: Long = 0L
   @JsonbProperty @OneToOne var biography: ReferenceBiography = null
 }
+

@@ -20,3 +20,4 @@ import java.util.UUID
 class RequiredReferencePost {
   @JsonbProperty @NotNull var author: ReferenceAuthor = new ReferenceAuthor()
 }
+

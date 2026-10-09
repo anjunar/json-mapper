@@ -21,3 +21,4 @@ import scala.annotation.meta.field
 class PolymorphicHolder {
   @(JsonbProperty @field) val fields: java.util.List[AbstractFieldDto] = new java.util.ArrayList[AbstractFieldDto]()
 }
+

@@ -424,3 +424,4 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     assert(post.labels.size() == 1 && post.labels.get("old") == "Preserved")
   }
 }
+
