@@ -11,7 +11,7 @@ class TemporalAmountDeserializer extends Deserializer[TemporalAmount] {
   override def deserialize(json: JsonNode, context: JsonContext): TemporalAmount =
     json match {
       case value: JsonString => Duration.parse(value.value)
-      case _ => throw new IllegalArgumentException("json must be a string")
+      case _                 => throw new IllegalArgumentException("json must be a string")
     }
 
 }

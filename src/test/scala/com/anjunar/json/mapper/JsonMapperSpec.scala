@@ -15,8 +15,9 @@ import org.scalatest.matchers.should.Matchers
 import java.lang.annotation.ElementType
 import java.lang.reflect.{Constructor, Method}
 import java.util
-import java.util.UUID
 import scala.annotation.meta.field
+import com.anjunar.json.mapper.intermediate.model.JsonArray
+import com.anjunar.json.mapper.intermediate.model.JsonObject
 
 class JsonMapperSpec extends AnyFunSuite with Matchers {
 
@@ -42,7 +43,7 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
       noInject
     )
 
-    val parsed = JsonParser.parse(json).asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonObject]
+    val parsed = JsonParser.parse(json).asInstanceOf[JsonObject]
 
     parsed.getString("name") shouldBe "Patrick"
     parsed.value.get("age").value shouldBe "34"
@@ -51,9 +52,9 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     parsed.getJsonObject("primaryTag").getString("label") shouldBe "backend"
     parsed.getJsonObject("primaryTag").getString("@type") shouldBe "TagDto"
 
-    val tags = parsed.value.get("tags").asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonArray]
+    val tags = parsed.value.get("tags").asInstanceOf[JsonArray]
     tags.value.size() shouldBe 1
-    tags.value.get(0).asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonObject].getString("label") shouldBe "scala"
+    tags.value.get(0).asInstanceOf[JsonObject].getString("label") shouldBe "scala"
 
     parsed.getString("@type") shouldBe "ProfileDto"
   }
@@ -75,7 +76,7 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
       noInject
     )
 
-    val parsed = JsonParser.parse(json).asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonObject]
+    val parsed = JsonParser.parse(json).asInstanceOf[JsonObject]
 
     parsed.getString("name") shouldBe "Patrick"
     parsed.getString("nicknameAlias") shouldBe "Pat"
@@ -91,9 +92,9 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     val profile = new ProfileDto
     profile.primaryTag = new TagDto
 
-    val loaderId = UUID.randomUUID()
+    val loaderId = util.UUID.randomUUID()
     val loader = new EntityLoader {
-      override def load(id: UUID, clazz: Class[?]): Any =
+      override def load(id: util.UUID, clazz: Class[?]): Any =
         if (id == loaderId && clazz == classOf[TagDto]) loadedTag else null
     }
 
@@ -134,8 +135,15 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     val json = """{"fields":[{"@type":"TextFieldDto","key":"summary","value":"Hello"},
                  {"@type":"FlagFieldDto","key":"visible","enabled":true}]}"""
 
-    JsonMapper.deserialize(JsonParser.parse(json), holder, TypeResolver.resolve(classOf[PolymorphicHolder]),
-      null, nullLoader, noInject, emptyValidator)
+    JsonMapper.deserialize(
+      JsonParser.parse(json),
+      holder,
+      TypeResolver.resolve(classOf[PolymorphicHolder]),
+      null,
+      nullLoader,
+      noInject,
+      emptyValidator
+    )
 
     holder.fields.size() shouldBe 2
     holder.fields.get(0).asInstanceOf[TextFieldDto].value shouldBe "Hello"
@@ -154,11 +162,15 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     flag.enabled = true
     holder.fields.add(flag)
 
-    val json = JsonParser.parse(JsonMapper.serialize(holder, TypeResolver.resolve(classOf[PolymorphicHolder]),
-      null, noInject)).asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonObject]
-    val fields = json.value.get("fields").asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonArray]
-    val serializedText = fields.value.get(0).asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonObject]
-    val serializedFlag = fields.value.get(1).asInstanceOf[com.anjunar.json.mapper.intermediate.model.JsonObject]
+    val json = JsonParser.parse(JsonMapper.serialize(
+      holder,
+      TypeResolver.resolve(classOf[PolymorphicHolder]),
+      null,
+      noInject
+    )).asInstanceOf[JsonObject]
+    val fields = json.value.get("fields").asInstanceOf[JsonArray]
+    val serializedText = fields.value.get(0).asInstanceOf[JsonObject]
+    val serializedFlag = fields.value.get(1).asInstanceOf[JsonObject]
 
     serializedText.getString("@type") shouldBe "TextFieldDto"
     serializedText.getString("value") shouldBe "Saved Markdown"
@@ -171,8 +183,14 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     val json = """{"fields":[{"@type":"ProfileDto","key":"summary"}]}"""
 
     an[IllegalArgumentException] should be thrownBy JsonMapper.deserialize(
-      JsonParser.parse(json), holder, TypeResolver.resolve(classOf[PolymorphicHolder]),
-      null, nullLoader, noInject, emptyValidator)
+      JsonParser.parse(json),
+      holder,
+      TypeResolver.resolve(classOf[PolymorphicHolder]),
+      null,
+      nullLoader,
+      noInject,
+      emptyValidator
+    )
   }
 
   test("deserialize should apply a property converter before DTO handling") {
@@ -222,10 +240,10 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     result.attributes.get("score") shouldBe Long.box(7)
     result.attributes.get("enabled") shouldBe Boolean.box(true)
 
-    val metadata = result.attributes.get("metadata").asInstanceOf[java.util.Map[String, Any]]
+    val metadata = result.attributes.get("metadata").asInstanceOf[util.Map[String, Any]]
     metadata.get("level") shouldBe "gold"
 
-    val aliases = result.attributes.get("aliases").asInstanceOf[java.util.List[Any]]
+    val aliases = result.attributes.get("aliases").asInstanceOf[util.List[Any]]
     aliases.get(0) shouldBe "p"
     aliases.get(1) shouldBe "patrick"
   }
@@ -296,7 +314,7 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     [T] => (_: Class[T]) => null.asInstanceOf[T]
 
   private val nullLoader = new EntityLoader {
-    override def load(id: UUID, clazz: Class[?]): Any = null
+    override def load(id: util.UUID, clazz: Class[?]): Any = null
   }
 
   private val emptyValidator: Validator = validatorRejecting("", "")
@@ -306,10 +324,19 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
       override def validate[T](obj: T, groups: Class[?]*): util.Set[ConstraintViolation[T]] =
         util.Collections.emptySet()
 
-      override def validateProperty[T](obj: T, propertyName: String, groups: Class[?]*): util.Set[ConstraintViolation[T]] =
+      override def validateProperty[T](
+        obj: T,
+        propertyName: String,
+        groups: Class[?]*
+      ): util.Set[ConstraintViolation[T]] =
         util.Collections.emptySet()
 
-      override def validateValue[T](beanType: Class[T], candidateProperty: String, value: Any, groups: Class[?]*): util.Set[ConstraintViolation[T]] =
+      override def validateValue[T](
+        beanType: Class[T],
+        candidateProperty: String,
+        value: Any,
+        groups: Class[?]*
+      ): util.Set[ConstraintViolation[T]] =
         if (candidateProperty == propertyName) {
           val violations = new util.HashSet[ConstraintViolation[T]]()
           violations.add(new SimpleConstraintViolation[T](candidateProperty, message))
@@ -325,7 +352,8 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
       override def forExecutables(): ExecutableValidator = null
     }
 
-  private class SimpleConstraintViolation[T](propertyName: String, overrideMessage: String) extends ConstraintViolation[T] {
+  private class SimpleConstraintViolation[T](propertyName: String, overrideMessage: String)
+      extends ConstraintViolation[T] {
     override def getMessage: String = overrideMessage
     override def getMessageTemplate: String = overrideMessage
     override def getRootBean: T = null.asInstanceOf[T]
@@ -344,4 +372,3 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     override def toString: String = pathValue
   }
 }
-

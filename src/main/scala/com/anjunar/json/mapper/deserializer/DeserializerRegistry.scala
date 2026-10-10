@@ -5,7 +5,9 @@ import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonBoolean, JsonN
 import com.anjunar.scala.universe.introspector.AnnotationProperty
 
 import java.time.temporal.{Temporal, TemporalAmount}
-import java.util.{Locale, UUID}
+import java.util
+import com.anjunar.json.mapper.intermediate.model.JsonNull
+import java.lang.{Object as LangObject}
 
 object DeserializerRegistry {
 
@@ -14,14 +16,14 @@ object DeserializerRegistry {
 
   def findDeserializer[T](clazz: Class[T], node: JsonNode): Deserializer[T] =
     (node match {
-      case _: JsonNumber => new NumberDeserializer
+      case _: JsonNumber  => new NumberDeserializer
       case _: JsonBoolean => new BooleanDeserializer
-      case _: JsonArray => new ArrayDeserializer
-      case _: JsonObject =>
+      case _: JsonArray   => new ArrayDeserializer
+      case _: JsonObject  =>
         if (
           clazz == classOf[Object] ||
-          clazz == classOf[java.lang.Object] ||
-          classOf[java.util.Map[?, ?]].isAssignableFrom(clazz)
+          clazz == classOf[LangObject] ||
+          classOf[util.Map[?, ?]].isAssignableFrom(clazz)
         ) {
           new MapDeserializer
         } else {
@@ -32,7 +34,7 @@ object DeserializerRegistry {
           new ByteArrayDeserializer
         } else if (classOf[Enum[?]].isAssignableFrom(clazz)) {
           new EnumDeserializer
-        } else if (classOf[Locale].isAssignableFrom(clazz)) {
+        } else if (classOf[util.Locale].isAssignableFrom(clazz)) {
           new LocaleDeserializer
         } else if (classOf[String].isAssignableFrom(clazz)) {
           new StringDeserializer
@@ -40,16 +42,16 @@ object DeserializerRegistry {
           new TemporalAmountDeserializer
         } else if (classOf[Temporal].isAssignableFrom(clazz)) {
           new TemporalDeserializer
-        } else if (classOf[UUID].isAssignableFrom(clazz)) {
+        } else if (classOf[util.UUID].isAssignableFrom(clazz)) {
           new UUIDDeserializer
         } else if (NumberDeserializer.decimal(clazz)) {
           new NumberDeserializer
-        } else if (clazz == classOf[Object] || clazz == classOf[java.lang.Object]) {
+        } else if (clazz == classOf[Object] || clazz == classOf[LangObject]) {
           new StringDeserializer
         } else {
           throw new IllegalArgumentException(s"Unsupported type: $clazz")
         }
-      case _: com.anjunar.json.mapper.intermediate.model.JsonNull =>
+      case _: JsonNull =>
         nullDeserializer
       case _: JsonNode =>
         throw new IllegalArgumentException(s"Unsupported type: $clazz")

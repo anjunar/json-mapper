@@ -15,17 +15,23 @@ import org.scalatest.matchers.should.Matchers
 import java.lang.annotation.ElementType
 import java.lang.reflect.{Constructor, Method}
 import java.util
-import java.util.UUID
 import scala.annotation.meta.field
 
 class ProfileDto {
-  @(JsonbProperty @field) var name: String = null
-  @(JsonbProperty @field) var age: Int = 0
-  @(JsonbProperty @field) var active: Boolean = false
-  @(JsonbProperty @field) var nickname: String = null
-  @(JsonbProperty @field) var primaryTag: TagDto = null
-  @(JsonbProperty @field) var linkedTag: TagDto = null
-  @(JsonbProperty @field) var tags: java.util.List[TagDto] = new java.util.ArrayList[TagDto]()
-  @(JsonbAnyProperty @field) @(JsonbProperty @field) var attributes: java.util.Map[String, Any] = new java.util.LinkedHashMap[String, Any]()
+  @(JsonbProperty @field)
+  var name: String = null
+  @(JsonbProperty @field)
+  var age: Int = 0
+  @(JsonbProperty @field)
+  var active: Boolean = false
+  @(JsonbProperty @field)
+  var nickname: String = null
+  @(JsonbProperty @field)
+  var primaryTag: TagDto = null
+  @(JsonbProperty @field)
+  var linkedTag: TagDto = null
+  @(JsonbProperty @field)
+  var tags: util.List[TagDto] = new util.ArrayList[TagDto]()
+  @(JsonbAnyProperty @field) @(JsonbProperty @field)
+  var attributes: util.Map[String, Any] = new util.LinkedHashMap[String, Any]()
 }
-

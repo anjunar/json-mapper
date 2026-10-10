@@ -15,13 +15,11 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import java.lang.reflect.Proxy
 import java.util
-import java.util.UUID
 
 class ReferencePost extends EntityProvider {
-  @JsonbProperty var id: UUID = UUID.randomUUID()
+  @JsonbProperty var id: util.UUID = util.UUID.randomUUID()
   @JsonbProperty var version: Long = 0L
   @JsonbProperty @ManyToOne var author: ReferenceAuthor = null
   @JsonbProperty @Size(max = 2) var reviewers: util.List[ReferenceAuthor] = new util.ArrayList[ReferenceAuthor]()
   @JsonbProperty @Size(max = 2) var labels: util.Map[String, String] = new util.LinkedHashMap[String, String]()
 }
-

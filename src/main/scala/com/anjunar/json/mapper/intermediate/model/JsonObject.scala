@@ -1,9 +1,10 @@
 package com.anjunar.json.mapper.intermediate.model
 
 import com.anjunar.json.mapper.intermediate.JsonGenerator
+import java.util
 
 class JsonObject(
-  override val value: java.util.Map[String, JsonNode] = new java.util.HashMap[String, JsonNode]()
+  override val value: util.Map[String, JsonNode] = new util.HashMap[String, JsonNode]()
 ) extends JsonNode {
 
   def encode(): String = JsonGenerator.generate(this)

@@ -8,30 +8,35 @@ import com.anjunar.json.mapper.serializers.{Serializer, SerializerRegistry}
 import com.anjunar.scala.universe.ResolvedClass
 import jakarta.persistence.EntityGraph
 import jakarta.validation.Validator
+import java.util
 
 object JsonMapper {
 
-  def prepare[T](jsonNode: JsonNode,
-                 entity: T,
-                 resolvedClass: ResolvedClass,
-                 graph: EntityGraph[?],
-                 loader: EntityLoader,
-                 inject: [X] => Class[X] => X,
-                 validator: Validator): PreparedChange[T] =
+  def prepare[T](
+    jsonNode: JsonNode,
+    entity: T,
+    resolvedClass: ResolvedClass,
+    graph: EntityGraph[?],
+    loader: EntityLoader,
+    inject: [X] => Class[X] => X,
+    validator: Validator
+  ): PreparedChange[T] =
     new PreparedChange(entity, jsonNode, resolvedClass, graph, loader, inject, validator)
 
-  def deserialize(jsonNode: JsonNode,
-                  instance: AnyRef,
-                  resolvedClass: ResolvedClass,
-                  graph: EntityGraph[?],
-                  loader: EntityLoader,
-                  inject: [T] => Class[T] => T,
-                  validator: Validator): Any = {
+  def deserialize(
+    jsonNode: JsonNode,
+    instance: AnyRef,
+    resolvedClass: ResolvedClass,
+    graph: EntityGraph[?],
+    loader: EntityLoader,
+    inject: [T] => Class[T] => T,
+    validator: Validator
+  ): Any = {
     val deserializer = DeserializerRegistry.findDeserializer(resolvedClass.raw.asInstanceOf[Class[Any]], jsonNode)
     val context = new JsonContext(resolvedClass, instance, graph, loader, validator, inject, null, null)
     val deserialized = deserializer.deserialize(jsonNode, context)
 
-    val errorRequests = new java.util.ArrayList[ErrorRequest]()
+    val errorRequests = new util.ArrayList[ErrorRequest]()
     val contexts = context.flatten().iterator()
 
     while (contexts.hasNext) {
@@ -39,7 +44,7 @@ object JsonMapper {
       val violations = current.violations.iterator()
       while (violations.hasNext) {
         val violation = violations.next()
-        val path = new java.util.ArrayList[Any](current.pathWithIndexes())
+        val path = new util.ArrayList[Any](current.pathWithIndexes())
         path.add(violation.getPropertyPath.toString)
         errorRequests.add(new ErrorRequest(path, violation.getMessage))
       }
@@ -52,7 +57,12 @@ object JsonMapper {
     }
   }
 
-  def serialize(instance: Any, resolvedClass: ResolvedClass, graph: EntityGraph[?], inject : [T] => Class[T] => T): String = {
+  def serialize(
+    instance: Any,
+    resolvedClass: ResolvedClass,
+    graph: EntityGraph[?],
+    inject: [T] => Class[T] => T
+  ): String = {
     val serializer = SerializerRegistry.find(resolvedClass.raw.asInstanceOf[Class[Any]], instance)
     val node = serializer.serialize(instance, new JavaContext(resolvedClass, graph, inject, null, null))
     JsonGenerator.generate(node)

@@ -4,11 +4,12 @@ import com.anjunar.json.mapper.JavaContext
 import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonNode}
 import com.anjunar.scala.universe.TypeResolver
 import jakarta.json.bind.annotation.JsonbSubtype
+import java.util
 
-class ArraySerializer extends Serializer[java.util.Collection[?]] {
+class ArraySerializer extends Serializer[util.Collection[?]] {
 
-  override def serialize(input: java.util.Collection[?], context: JavaContext): JsonNode = {
-    val nodes = new java.util.ArrayList[JsonNode]()
+  override def serialize(input: util.Collection[?], context: JavaContext): JsonNode = {
+    val nodes = new util.ArrayList[JsonNode]()
     val jsonArray = new JsonArray(nodes)
 
     val iterator = input.iterator()
@@ -19,8 +20,10 @@ class ArraySerializer extends Serializer[java.util.Collection[?]] {
         if (any == null) declaredType
         else {
           var current: Class[?] = any.getClass
-          while (current != null && declaredType.raw.isAssignableFrom(current) &&
-              current.getDeclaredAnnotation(classOf[JsonbSubtype]) == null)
+          while (
+            current != null && declaredType.raw.isAssignableFrom(current) &&
+            current.getDeclaredAnnotation(classOf[JsonbSubtype]) == null
+          )
             current = current.getSuperclass
           if (current != null && declaredType.raw.isAssignableFrom(current)) TypeResolver.resolve(current)
           else declaredType

@@ -39,12 +39,12 @@ object JsonParser {
       skipWhitespace()
       if (eof) throw new IllegalStateException("Unexpected end of input")
       peek match {
-        case '{' => parseObject()
-        case '[' => parseArray()
-        case '"' => JsonString(parseString())
-        case 't' => expectLiteral("true"); JsonBoolean(true)
-        case 'f' => expectLiteral("false"); JsonBoolean(false)
-        case 'n' => expectLiteral("null"); new JsonNull
+        case '{'                                       => parseObject()
+        case '['                                       => parseArray()
+        case '"'                                       => JsonString(parseString())
+        case 't'                                       => expectLiteral("true"); JsonBoolean(true)
+        case 'f'                                       => expectLiteral("false"); JsonBoolean(false)
+        case 'n'                                       => expectLiteral("null"); new JsonNull
         case c if (c == '-' || (c >= '0' && c <= '9')) => parseNumber()
         case other => throw new IllegalStateException(s"Unexpected char '${other}' at pos $pos")
       }

@@ -3,11 +3,12 @@ package com.anjunar.json.mapper.serializers
 import com.anjunar.json.mapper.JavaContext
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonObject}
 import com.anjunar.scala.universe.TypeResolver
+import java.util
 
-class MapSerializer extends Serializer[java.util.Map[String, ?]] {
+class MapSerializer extends Serializer[util.Map[String, ?]] {
 
-  override def serialize(input: java.util.Map[String, ?], context: JavaContext): JsonNode = {
-    val nodes = new java.util.HashMap[String, JsonNode]()
+  override def serialize(input: util.Map[String, ?], context: JavaContext): JsonNode = {
+    val nodes = new util.HashMap[String, JsonNode]()
     val jsonObject = new JsonObject(nodes)
     val typeArguments = context.resolvedClass.typeArguments
 

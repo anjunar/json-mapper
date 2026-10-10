@@ -6,7 +6,7 @@ import java.lang.reflect.Member
 import java.util
 import java.util.concurrent.CompletionStage
 
-trait JPASetAttribute[X,E](val collectionAttribute: SetAttribute[X,E]) extends SetAttribute[X,E] {
+trait JPASetAttribute[X, E](val collectionAttribute: SetAttribute[X, E]) extends SetAttribute[X, E] {
 
   override def getCollectionType: PluralAttribute.CollectionType = collectionAttribute.getCollectionType
 
@@ -14,7 +14,8 @@ trait JPASetAttribute[X,E](val collectionAttribute: SetAttribute[X,E]) extends S
 
   override def getName: String = collectionAttribute.getName
 
-  override def getPersistentAttributeType: Attribute.PersistentAttributeType = collectionAttribute.getPersistentAttributeType
+  override def getPersistentAttributeType: Attribute.PersistentAttributeType =
+    collectionAttribute.getPersistentAttributeType
 
   override def getDeclaringType: ManagedType[X] = collectionAttribute.getDeclaringType
 

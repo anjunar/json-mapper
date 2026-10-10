@@ -9,13 +9,15 @@ import com.anjunar.scala.universe.TypeResolver
 import com.anjunar.scala.universe.introspector.{AbstractProperty, AnnotationIntrospector, AnnotationProperty}
 import jakarta.json.bind.annotation.{JsonbProperty, JsonbSubtype}
 import jakarta.persistence.{EntityGraph, Subgraph}
+import java.lang.{Boolean as JavaBoolean}
+import java.util
 
 class BeanSerializer extends Serializer[Any] {
 
   override def serialize(input: Any, context: JavaContext): JsonNode = {
     val beanModel = AnnotationIntrospector.create(context.resolvedClass, classOf[JsonbProperty])
 
-    val nodes = new java.util.LinkedHashMap[String, JsonNode]()
+    val nodes = new util.LinkedHashMap[String, JsonNode]()
     val json = new JsonObject(nodes)
 
     val companion = TypeResolver.companionInstance[AnyRef](context.resolvedClass.raw)
@@ -29,7 +31,7 @@ class BeanSerializer extends Serializer[Any] {
     val properties = beanModel.properties
     var index = 0
 
-    val ruleCache = new java.util.HashMap[Class[? <: VisibilityRule[?]], VisibilityRule[Any]]()
+    val ruleCache = new util.HashMap[Class[? <: VisibilityRule[?]], VisibilityRule[Any]]()
 
     while (index < properties.length) {
       val property = properties(index)
@@ -39,7 +41,7 @@ class BeanSerializer extends Serializer[Any] {
         !isAnyProperty &&
           property.name != "links" &&
           classOf[EntityProvider].isAssignableFrom(context.resolvedClass.raw) &&
-          (! isJsonGraphProperty(property) && context.graph != null && !isSelectedByGraph(context, property))
+          (!isJsonGraphProperty(property) && context.graph != null && !isSelectedByGraph(context, property))
 
       if (skipByGraph) {
         index += 1
@@ -97,11 +99,11 @@ class BeanSerializer extends Serializer[Any] {
   }
 
   private def serializeProperty(
-                                 input: Any,
-                                 context: JavaContext,
-                                 nodes: java.util.LinkedHashMap[String, JsonNode],
-                                 property: AnnotationProperty
-                               ): Unit = {
+    input: Any,
+    context: JavaContext,
+    nodes: util.LinkedHashMap[String, JsonNode],
+    property: AnnotationProperty
+  ): Unit = {
     val value =
       try {
         property.get(input.asInstanceOf[AnyRef])
@@ -110,7 +112,7 @@ class BeanSerializer extends Serializer[Any] {
       }
 
     value match {
-      case booleanValue: java.lang.Boolean =>
+      case booleanValue: JavaBoolean =>
         if (booleanValue.booleanValue()) {
           convertToJsonNode(property, nodes, booleanValue, context)
         }
@@ -122,7 +124,7 @@ class BeanSerializer extends Serializer[Any] {
         if (!stringValue.isEmpty) {
           convertToJsonNode(property, nodes, stringValue, context)
         }
-      case collectionValue: java.util.Collection[?] =>
+      case collectionValue: util.Collection[?] =>
         if (!collectionValue.isEmpty) {
           convertToJsonNode(property, nodes, collectionValue, context)
         }
@@ -134,11 +136,11 @@ class BeanSerializer extends Serializer[Any] {
   }
 
   private def serializeAnyProperty(
-                                    input: Any,
-                                    context: JavaContext,
-                                    nodes: java.util.LinkedHashMap[String, JsonNode],
-                                    property: AnnotationProperty
-                                  ): Unit = {
+    input: Any,
+    context: JavaContext,
+    nodes: util.LinkedHashMap[String, JsonNode],
+    property: AnnotationProperty
+  ): Unit = {
     val value =
       try {
         property.get(input.asInstanceOf[AnyRef])
@@ -173,10 +175,12 @@ class BeanSerializer extends Serializer[Any] {
     }
   }
 
-  private def convertToJsonNode(property: AbstractProperty,
-                                nodes: java.util.LinkedHashMap[String, JsonNode],
-                                value: Any,
-                                context: JavaContext): Unit = {
+  private def convertToJsonNode(
+    property: AbstractProperty,
+    nodes: util.LinkedHashMap[String, JsonNode],
+    value: Any,
+    context: JavaContext
+  ): Unit = {
     val jsonbProperty = property.findAnnotation(classOf[JsonbProperty])
     if (jsonbProperty == null) {
       return
@@ -187,8 +191,8 @@ class BeanSerializer extends Serializer[Any] {
 
     val propertyType =
       if (
-        classOf[java.util.Collection[?]].isAssignableFrom(property.propertyType.raw) ||
-          classOf[java.util.Map[?, ?]].isAssignableFrom(property.propertyType.raw)
+        classOf[util.Collection[?]].isAssignableFrom(property.propertyType.raw) ||
+        classOf[util.Map[?, ?]].isAssignableFrom(property.propertyType.raw)
       ) {
         property.propertyType
       } else {
@@ -207,12 +211,16 @@ class BeanSerializer extends Serializer[Any] {
 
     val jsonNode =
       if (converterAnnotation == null) {
-        val serializer = SerializerRegistry.find(property.propertyType.raw.asInstanceOf[Class[Any]], value).asInstanceOf[Serializer[Any]]
+        val serializer = SerializerRegistry.find(
+          property.propertyType.raw.asInstanceOf[Class[Any]],
+          value
+        ).asInstanceOf[Serializer[Any]]
         serializer.serialize(value, javaContext)
       } else {
         val converter = converterAnnotation.value().getDeclaredConstructor().newInstance()
         val toJson = converter.toJson(value, property.propertyType)
-        val serializer = SerializerRegistry.find(classOf[String].asInstanceOf[Class[Any]], toJson).asInstanceOf[Serializer[Any]]
+        val serializer =
+          SerializerRegistry.find(classOf[String].asInstanceOf[Class[Any]], toJson).asInstanceOf[Serializer[Any]]
         serializer.serialize(toJson, javaContext)
       }
 
@@ -226,7 +234,7 @@ class BeanSerializer extends Serializer[Any] {
     }
   }
 
-  private val attributeNamesCache = new java.util.WeakHashMap[Any, java.util.Set[String]]()
+  private val attributeNamesCache = new util.WeakHashMap[Any, util.Set[String]]()
 
   private def isJsonGraphProperty(property: AnnotationProperty): Boolean = {
     val graphProperty = property.findAnnotation(classOf[JsonbGraphProperty])
@@ -246,10 +254,10 @@ class BeanSerializer extends Serializer[Any] {
         val attributeNodes =
           currentContainer match {
             case value: EntityGraph[?] => value.getAttributeNodes
-            case value: Subgraph[?] => value.getAttributeNodes
-            case _ => java.util.Collections.emptyList()
+            case value: Subgraph[?]    => value.getAttributeNodes
+            case _                     => util.Collections.emptyList()
           }
-        names = new java.util.HashSet[String]()
+        names = new util.HashSet[String]()
         val iterator = attributeNodes.iterator()
         while (iterator.hasNext) {
           names.add(iterator.next().getAttributeName)
@@ -268,8 +276,8 @@ class BeanSerializer extends Serializer[Any] {
     }
 
     if (
-      classOf[java.util.Collection[?]].isAssignableFrom(context.parent.resolvedClass.raw) ||
-        context.parent.resolvedClass.raw.isArray
+      classOf[util.Collection[?]].isAssignableFrom(context.parent.resolvedClass.raw) ||
+      context.parent.resolvedClass.raw.isArray
     ) {
       return resolveContainer(context.parent)
     }
@@ -281,7 +289,7 @@ class BeanSerializer extends Serializer[Any] {
     findSubgraph(context)
   }
 
-  private val subgraphCache = new java.util.WeakHashMap[Any, java.util.Map[String, Subgraph[?]]]()
+  private val subgraphCache = new util.WeakHashMap[Any, util.Map[String, Subgraph[?]]]()
 
   private def findSubgraph(context: JavaContext): Subgraph[?] = {
     val parent = context.parent
@@ -297,13 +305,13 @@ class BeanSerializer extends Serializer[Any] {
       val nodes =
         parentContainer match {
           case value: EntityGraph[?] => value.getAttributeNodes
-          case value: Subgraph[?] => value.getAttributeNodes
-          case _ => null
+          case value: Subgraph[?]    => value.getAttributeNodes
+          case _                     => null
         }
 
       if (nodes == null) return null
 
-      subgraphsMap = new java.util.HashMap[String, Subgraph[?]]()
+      subgraphsMap = new util.HashMap[String, Subgraph[?]]()
       val iterator = nodes.iterator()
       while (iterator.hasNext) {
         val node = iterator.next()

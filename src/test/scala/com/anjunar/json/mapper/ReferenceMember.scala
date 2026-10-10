@@ -15,11 +15,9 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import java.lang.reflect.Proxy
 import java.util
-import java.util.UUID
 
 class ReferenceMember extends EntityProvider {
-  @JsonbProperty var id: UUID = UUID.randomUUID()
+  @JsonbProperty var id: util.UUID = util.UUID.randomUUID()
   @JsonbProperty var version: Long = 0L
   @JsonbProperty @OneToOne var biography: ReferenceBiography = null
 }
-

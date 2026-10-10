@@ -1,9 +1,9 @@
 package com.anjunar.json.mapper
 
-import java.util.UUID
+import java.util
 
 trait EntityLoader {
 
-  def load(id: UUID, clazz: Class[?]): Any
+  def load(id: util.UUID, clazz: Class[?]): Any
 
 }

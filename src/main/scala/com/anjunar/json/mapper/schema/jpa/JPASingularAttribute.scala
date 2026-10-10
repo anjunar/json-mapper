@@ -9,7 +9,8 @@ import org.hibernate.query.sqm.tree.domain.{SqmDomainType, SqmPath}
 
 import java.lang.reflect.Member
 
-trait JPASingularAttribute[X,T](val collectionAttribute: SingularAttribute[X,T] & PersistentAttribute[X,T] & SqmPathSource[T]) extends SingularAttribute[X,T] with PersistentAttribute[X,T] with SqmPathSource[T] {
+trait JPASingularAttribute[X, T](val collectionAttribute: SingularAttribute[X, T] & PersistentAttribute[X, T] &
+  SqmPathSource[T]) extends SingularAttribute[X, T] with PersistentAttribute[X, T] with SqmPathSource[T] {
 
   override def isId: Boolean = collectionAttribute.isId
 
@@ -21,9 +22,11 @@ trait JPASingularAttribute[X,T](val collectionAttribute: SingularAttribute[X,T] 
 
   override def getName: String = collectionAttribute.getName
 
-  override def getPersistentAttributeType: Attribute.PersistentAttributeType = collectionAttribute.getPersistentAttributeType
+  override def getPersistentAttributeType: Attribute.PersistentAttributeType =
+    collectionAttribute.getPersistentAttributeType
 
-  override def getDeclaringType: ManagedDomainType[X] = collectionAttribute.getDeclaringType.asInstanceOf[ManagedDomainType[X]]
+  override def getDeclaringType: ManagedDomainType[X] =
+    collectionAttribute.getDeclaringType.asInstanceOf[ManagedDomainType[X]]
 
   override def getJavaType: Class[T] = collectionAttribute.getJavaType
 
@@ -37,7 +40,6 @@ trait JPASingularAttribute[X,T](val collectionAttribute: SingularAttribute[X,T] 
 
   override def getBindableJavaType: Class[T] = collectionAttribute.getBindableJavaType
 
-
   override def getAttributeJavaType: JavaType[T] = collectionAttribute.getAttributeJavaType
 
   override def getAttributeClassification: AttributeClassification = collectionAttribute.getAttributeClassification
@@ -46,20 +48,23 @@ trait JPASingularAttribute[X,T](val collectionAttribute: SingularAttribute[X,T] 
 
   override def getKeyGraphType: SimpleDomainType[?] = collectionAttribute.getKeyGraphType
 
-
   override def getPathType: SqmDomainType[T] = collectionAttribute.getPathType
 
   override def findSubPathSource(name: String): SqmPathSource[?] = collectionAttribute.findSubPathSource(name)
 
-  override def findSubPathSource(name: String, includeSubtypes: Boolean): SqmPathSource[?] = collectionAttribute.findSubPathSource(name, includeSubtypes)
+  override def findSubPathSource(name: String, includeSubtypes: Boolean): SqmPathSource[?] =
+    collectionAttribute.findSubPathSource(name, includeSubtypes)
 
   override def getSubPathSource(name: String): SqmPathSource[?] = collectionAttribute.getSubPathSource(name)
 
-  override def getSubPathSource(name: String, subtypes: Boolean): SqmPathSource[?] = collectionAttribute.getSubPathSource(name, subtypes)
+  override def getSubPathSource(name: String, subtypes: Boolean): SqmPathSource[?] =
+    collectionAttribute.getSubPathSource(name, subtypes)
 
-  override def getIntermediatePathSource(pathSource: SqmPathSource[?]): SqmPathSource[?] = collectionAttribute.getIntermediatePathSource(pathSource)
+  override def getIntermediatePathSource(pathSource: SqmPathSource[?]): SqmPathSource[?] =
+    collectionAttribute.getIntermediatePathSource(pathSource)
 
-  override def createSqmPath(lhs: SqmPath[?], intermediatePathSource: SqmPathSource[?]): SqmPath[T] = collectionAttribute.createSqmPath(lhs, intermediatePathSource)
+  override def createSqmPath(lhs: SqmPath[?], intermediatePathSource: SqmPathSource[?]): SqmPath[T] =
+    collectionAttribute.createSqmPath(lhs, intermediatePathSource)
 
   override def getExpressible: SqmBindableType[T] = collectionAttribute.getExpressible
 
@@ -77,4 +82,3 @@ trait JPASingularAttribute[X,T](val collectionAttribute: SingularAttribute[X,T] 
 
   override def getNodeJavaType: JavaType[T] = collectionAttribute.getNodeJavaType
 }
-

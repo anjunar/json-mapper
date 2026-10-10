@@ -4,13 +4,13 @@ import com.anjunar.json.mapper.JsonContext
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonString}
 import com.anjunar.json.mapper.provider.EntityProvider
 
-import java.util.UUID
+import java.util
 
 private[deserializer] object EntityReferences {
   def load(node: JsonNode, declaredType: Class[?], context: JsonContext): Any = {
     val id = node match {
       case text: JsonString =>
-        val parsed = UUID.fromString(text.value)
+        val parsed = util.UUID.fromString(text.value)
         if (!parsed.toString.equalsIgnoreCase(text.value)) {
           throw new IllegalArgumentException("Reference ID must be a canonical UUID")
         }

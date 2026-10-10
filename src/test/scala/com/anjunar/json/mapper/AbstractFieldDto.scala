@@ -15,9 +15,9 @@ import org.scalatest.matchers.should.Matchers
 import java.lang.annotation.ElementType
 import java.lang.reflect.{Constructor, Method}
 import java.util
-import java.util.UUID
 import scala.annotation.meta.field
 
 abstract class AbstractFieldDto {
-  @(JsonbProperty @field) var key: String = null
+  @(JsonbProperty @field)
+  var key: String = null
 }

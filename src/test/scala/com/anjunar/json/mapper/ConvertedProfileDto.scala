@@ -15,7 +15,6 @@ import org.scalatest.matchers.should.Matchers
 import java.lang.annotation.ElementType
 import java.lang.reflect.{Constructor, Method}
 import java.util
-import java.util.UUID
 import scala.annotation.meta.field
 
 class ConvertedProfileDto {
@@ -23,4 +22,3 @@ class ConvertedProfileDto {
   @(UseConverter @field)(classOf[TagStringConverter])
   var primaryTag: TagDto = null
 }
-

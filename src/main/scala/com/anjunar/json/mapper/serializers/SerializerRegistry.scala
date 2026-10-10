@@ -4,7 +4,7 @@ import com.anjunar.json.mapper.annotations.JsonbAnyProperty
 import com.anjunar.scala.universe.introspector.AnnotationProperty
 
 import java.time.temporal.{Temporal, TemporalAmount}
-import java.util.{Locale, UUID}
+import java.util
 
 object SerializerRegistry {
 
@@ -24,18 +24,18 @@ object SerializerRegistry {
 
   def find[T](clazz: Class[T], instance: Any): Serializer[T] =
     (instance match {
-      case _: String => stringSerializer
-      case _: java.util.Collection[?] => arraySerializer
-      case _: Boolean => booleanSerializer
-      case _: Array[Byte] => byteArraySerializer
-      case _: Enum[?] => enumSerializer
-      case _: Locale => localeSerializer
-      case _: java.util.Map[?, ?] => mapSerializer
-      case _: UUID => uuidSerializer
-      case _: Number => numberSerializer
-      case _: TemporalAmount => temporalAmountSerializer
-      case _: Temporal => temporalSerializer
-      case _ => beanSerializer
+      case _: String             => stringSerializer
+      case _: util.Collection[?] => arraySerializer
+      case _: Boolean            => booleanSerializer
+      case _: Array[Byte]        => byteArraySerializer
+      case _: Enum[?]            => enumSerializer
+      case _: util.Locale        => localeSerializer
+      case _: util.Map[?, ?]     => mapSerializer
+      case _: util.UUID          => uuidSerializer
+      case _: Number             => numberSerializer
+      case _: TemporalAmount     => temporalAmountSerializer
+      case _: Temporal           => temporalSerializer
+      case _                     => beanSerializer
     }).asInstanceOf[Serializer[T]]
 
   def findPropertySerializer(property: AnnotationProperty, instance: Any): Serializer[Any] =

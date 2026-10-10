@@ -3,13 +3,15 @@ package com.anjunar.json.mapper.deserializer
 import com.anjunar.json.mapper.JsonContext
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonObject}
 import com.anjunar.scala.universe.TypeResolver
+import java.lang.{Object as LangObject}
+import java.util
 
-class MapDeserializer extends Deserializer[java.util.Map[String, ?]] {
+class MapDeserializer extends Deserializer[util.Map[String, ?]] {
 
-  override def deserialize(json: JsonNode, context: JsonContext): java.util.Map[String, ?] =
+  override def deserialize(json: JsonNode, context: JsonContext): util.Map[String, ?] =
     json match {
       case jsonObject: JsonObject =>
-        val collection = new java.util.LinkedHashMap[String, Any]()
+        val collection = new util.LinkedHashMap[String, Any]()
         val elementResolvedClass =
           context.resolvedClass.typeArguments.lift(1).getOrElse(TypeResolver.resolve(classOf[Object]))
 
@@ -18,14 +20,14 @@ class MapDeserializer extends Deserializer[java.util.Map[String, ?]] {
           val entry = iterator.next()
           val entityCollection =
             context.instance match {
-              case value: java.util.Map[?, ?] => value.asInstanceOf[java.util.Map[String, Any]]
-              case _ => null
+              case value: util.Map[?, ?] => value.asInstanceOf[util.Map[String, Any]]
+              case _                     => null
             }
 
           val entity =
             if (entityCollection != null && entityCollection.containsKey(entry.getKey)) {
               entityCollection.get(entry.getKey)
-            } else if (elementResolvedClass.raw == classOf[Object] || elementResolvedClass.raw == classOf[java.lang.Object]) {
+            } else if (elementResolvedClass.raw == classOf[Object] || elementResolvedClass.raw == classOf[LangObject]) {
               null
             } else {
               elementResolvedClass.raw.getConstructor().newInstance()

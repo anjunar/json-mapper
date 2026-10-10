@@ -15,10 +15,9 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import java.lang.reflect.Proxy
 import java.util
-import java.util.UUID
 
 class ReferenceAuthor extends EntityProvider {
-  @JsonbProperty var id: UUID = UUID.randomUUID()
+  @JsonbProperty var id: util.UUID = util.UUID.randomUUID()
   @JsonbProperty var version: Long = 0L
   @JsonbProperty @Size(min = 1) var name: String = "Original"
   @JsonbProperty var internalNote: String = "Private"
@@ -34,4 +33,3 @@ object ReferenceAuthor extends SchemaProvider[ReferenceAuthor.Schema] {
     val posts = property(_.posts)
   }
 }
-

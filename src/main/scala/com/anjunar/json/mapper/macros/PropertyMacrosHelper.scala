@@ -11,16 +11,16 @@ object PropertyMacrosHelper {
   inline def describeProperties[E]: mutable.LinkedHashMap[String, Property[E, Any]] =
     val propertiesWithAccessors = PropertySupport.extractPropertiesWithAccessors[E]
     val properties = mutable.LinkedHashMap[String, Property[E, Any]]()
-    
+
     propertiesWithAccessors.foreach { propertyWithAccessor =>
       val property = new Property[E, Any](
-        propertyWithAccessor.accessor, 
+        propertyWithAccessor.accessor,
         propertyWithAccessor.descriptor,
-        classOf[DefaultRule[E]],
+        classOf[DefaultRule[E]]
       )
       properties.put(propertyWithAccessor.descriptor.name, property)
     }
-    
+
     properties
 
 }

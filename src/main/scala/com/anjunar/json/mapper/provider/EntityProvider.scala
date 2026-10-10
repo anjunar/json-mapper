@@ -1,10 +1,10 @@
 package com.anjunar.json.mapper.provider
 
-import java.util.UUID
+import java.util
 
 trait EntityProvider {
 
-  def id: UUID
+  def id: util.UUID
 
   def version: Long
 

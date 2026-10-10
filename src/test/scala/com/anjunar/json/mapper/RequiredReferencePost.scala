@@ -15,9 +15,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import java.lang.reflect.Proxy
 import java.util
-import java.util.UUID
 
 class RequiredReferencePost {
   @JsonbProperty @NotNull var author: ReferenceAuthor = new ReferenceAuthor()
 }
-

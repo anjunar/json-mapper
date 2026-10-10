@@ -5,17 +5,21 @@ import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonNode, JsonObje
 import com.anjunar.json.mapper.provider.EntityProvider
 import com.anjunar.scala.universe.TypeResolver
 import jakarta.json.bind.annotation.JsonbSubtype
+import com.anjunar.json.mapper.intermediate.model.JsonString
+import java.lang.{Object as LangObject}
+import java.lang.reflect.Modifier
+import java.util
 
-class ArrayDeserializer extends Deserializer[java.util.Collection[?]] {
+class ArrayDeserializer extends Deserializer[util.Collection[?]] {
 
-  override def deserialize(json: JsonNode, context: JsonContext): java.util.Collection[?] =
+  override def deserialize(json: JsonNode, context: JsonContext): util.Collection[?] =
     json match {
       case array: JsonArray =>
-        val collection: java.util.Collection[Any] =
-          if (classOf[java.util.Set[?]].isAssignableFrom(context.resolvedClass.raw)) {
-            new java.util.HashSet[Any]()
+        val collection: util.Collection[Any] =
+          if (classOf[util.Set[?]].isAssignableFrom(context.resolvedClass.raw)) {
+            new util.HashSet[Any]()
           } else {
-            new java.util.ArrayList[Any]()
+            new util.ArrayList[Any]()
           }
 
         val elementResolvedClass =
@@ -40,7 +44,7 @@ class ArrayDeserializer extends Deserializer[java.util.Collection[?]] {
 
               val actualResolvedClass =
                 if (actualType != declaredType) TypeResolver.resolve(actualType)
-                else if (entity == null || !java.lang.reflect.Modifier.isAbstract(declaredType.getModifiers)) elementResolvedClass
+                else if (entity == null || !Modifier.isAbstract(declaredType.getModifiers)) elementResolvedClass
                 else TypeResolver.resolve(entity.getClass)
               val jsonContext = new JsonContext(
                 actualResolvedClass,
@@ -63,15 +67,15 @@ class ArrayDeserializer extends Deserializer[java.util.Collection[?]] {
               val elementInstance =
                 if (
                   elementResolvedClass.raw == classOf[Object] ||
-                  elementResolvedClass.raw == classOf[java.lang.Object] ||
+                  elementResolvedClass.raw == classOf[LangObject] ||
                   classOf[EntityProvider].isAssignableFrom(elementResolvedClass.raw)
                 ) {
                   null
                 } else {
                   val existingCollection =
                     context.instance match {
-                      case value: java.util.Collection[?] => value.asInstanceOf[java.util.Collection[Any]]
-                      case _ => null
+                      case value: util.Collection[?] => value.asInstanceOf[util.Collection[Any]]
+                      case _                         => null
                     }
                   if (existingCollection == null) {
                     null
@@ -115,12 +119,12 @@ class ArrayDeserializer extends Deserializer[java.util.Collection[?]] {
     }
 
   private def subtype(node: JsonObject, declaredType: Class[?]): Class[?] = {
-    if (!declaredType.isInterface && !java.lang.reflect.Modifier.isAbstract(declaredType.getModifiers))
+    if (!declaredType.isInterface && !Modifier.isAbstract(declaredType.getModifiers))
       return declaredType
     val alias = node.value.get("@type") match {
-      case value: com.anjunar.json.mapper.intermediate.model.JsonString => value.value
-      case null => return declaredType
-      case _ => throw new IllegalArgumentException("Collection element type must be a string")
+      case value: JsonString => value.value
+      case null              => return declaredType
+      case _                 => throw new IllegalArgumentException("Collection element type must be a string")
     }
     if (!alias.matches("[A-Za-z][A-Za-z0-9_]*"))
       throw new IllegalArgumentException("Invalid collection element type")
@@ -128,8 +132,10 @@ class ArrayDeserializer extends Deserializer[java.util.Collection[?]] {
       try Class.forName(s"${declaredType.getPackageName}.$alias", false, declaredType.getClassLoader)
       catch { case _: ClassNotFoundException => throw new IllegalArgumentException("Unknown collection element type") }
     val annotation = resolved.getAnnotation(classOf[JsonbSubtype])
-    if (!declaredType.isAssignableFrom(resolved) || annotation == null || annotation.alias() != alias ||
-        annotation.`type`() != resolved)
+    if (
+      !declaredType.isAssignableFrom(resolved) || annotation == null || annotation.alias() != alias ||
+      annotation.`type`() != resolved
+    )
       throw new IllegalArgumentException("Collection element type is not allowed")
     resolved
   }

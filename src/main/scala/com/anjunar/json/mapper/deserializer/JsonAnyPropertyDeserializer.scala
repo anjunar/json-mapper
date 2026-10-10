@@ -5,10 +5,12 @@ import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonObject}
 import com.anjunar.scala.universe.TypeResolver
 import com.anjunar.scala.universe.introspector.{AnnotationIntrospector, AnnotationProperty}
 import jakarta.json.bind.annotation.JsonbProperty
+import com.anjunar.json.mapper.annotations.JsonbAnyProperty
+import java.util
 
-class JsonAnyPropertyDeserializer extends Deserializer[java.util.Map[String, ?]] {
+class JsonAnyPropertyDeserializer extends Deserializer[util.Map[String, ?]] {
 
-  override def deserialize(json: JsonNode, context: JsonContext): java.util.Map[String, ?] =
+  override def deserialize(json: JsonNode, context: JsonContext): util.Map[String, ?] =
     json match {
       case jsonObject: JsonObject =>
         val beanContext = context.parent
@@ -17,7 +19,7 @@ class JsonAnyPropertyDeserializer extends Deserializer[java.util.Map[String, ?]]
         }
 
         val beanModel = AnnotationIntrospector.create(beanContext.resolvedClass, classOf[JsonbProperty])
-        val excludedNames = new java.util.HashSet[String]()
+        val excludedNames = new util.HashSet[String]()
         val propertyIterator = beanModel.properties.iterator
         while (propertyIterator.hasNext) {
           val property = propertyIterator.next()
@@ -28,7 +30,7 @@ class JsonAnyPropertyDeserializer extends Deserializer[java.util.Map[String, ?]]
           }
         }
 
-        val collection = new java.util.LinkedHashMap[String, Any]()
+        val collection = new util.LinkedHashMap[String, Any]()
         val iterator = jsonObject.value.entrySet().iterator()
         while (iterator.hasNext) {
           val entry = iterator.next()
@@ -58,7 +60,7 @@ class JsonAnyPropertyDeserializer extends Deserializer[java.util.Map[String, ?]]
     }
 
   private def isJsonAnyProperty(property: AnnotationProperty): Boolean =
-    property.findAnnotation(classOf[com.anjunar.json.mapper.annotations.JsonbAnyProperty]) != null
+    property.findAnnotation(classOf[JsonbAnyProperty]) != null
 
   private def resolveJsonName(property: AnnotationProperty): String = {
     val jsonbProperty = property.findAnnotation(classOf[JsonbProperty])

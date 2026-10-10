@@ -15,7 +15,6 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import java.lang.reflect.Proxy
 import java.util
-import java.util.UUID
 
 class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
   private val factory = Validation.byDefaultProvider().configure()
@@ -23,7 +22,7 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
   private val inject: [T] => Class[T] => T =
     [T] => (clazz: Class[T]) => clazz.getConstructor().newInstance()
   private val unexpectedLoader = new EntityLoader {
-    override def load(id: UUID, clazz: Class[?]): Any =
+    override def load(id: util.UUID, clazz: Class[?]): Any =
       fail("This payload must not resolve a reference")
   }
 
@@ -32,7 +31,7 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     finally super.afterAll()
 
   private def loaderFor(target: ReferenceAuthor): EntityLoader = new EntityLoader {
-    override def load(id: UUID, clazz: Class[?]): Any = {
+    override def load(id: util.UUID, clazz: Class[?]): Any = {
       assert(id == target.id)
       assert(clazz == classOf[ReferenceAuthor])
       target
@@ -40,15 +39,22 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
   }
 
   private def prepare[T <: AnyRef](value: T, json: String, loader: EntityLoader = unexpectedLoader): PreparedChange[T] =
-    JsonMapper.prepare(JsonParser.parse(json), value, TypeResolver.resolve(value.getClass),
-      null, loader, inject, factory.getValidator)
+    JsonMapper.prepare(
+      JsonParser.parse(json),
+      value,
+      TypeResolver.resolve(value.getClass),
+      null,
+      loader,
+      inject,
+      factory.getValidator
+    )
 
   test("a new to-one EntityProvider reference is resolved only when the prepared change is applied") {
     val post = new ReferencePost()
     val target = new ReferenceAuthor()
     var loads = 0
     val loader = new EntityLoader {
-      override def load(id: UUID, clazz: Class[?]): Any = {
+      override def load(id: util.UUID, clazz: Class[?]): Any = {
         loads += 1
         loaderFor(target).load(id, clazz)
       }
@@ -80,7 +86,7 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     post.author = target
     var loads = 0
     val loader = new EntityLoader {
-      override def load(id: UUID, clazz: Class[?]): Any = {
+      override def load(id: util.UUID, clazz: Class[?]): Any = {
         loads += 1
         loaderFor(target).load(id, clazz)
       }
@@ -115,10 +121,10 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     val previous = new ReferenceAuthor()
     post.author = previous
     val missing = new EntityLoader {
-      override def load(id: UUID, clazz: Class[?]): Any = null
+      override def load(id: util.UUID, clazz: Class[?]): Any = null
     }
     intercept[IllegalArgumentException] {
-      prepare(post, s"""{"author":{"id":"${UUID.randomUUID()}","name":"Unwanted"}}""", missing).applyChanges()
+      prepare(post, s"""{"author":{"id":"${util.UUID.randomUUID()}","name":"Unwanted"}}""", missing).applyChanges()
     }
     assert(post.author eq previous)
     assert(previous.name == "Original")
@@ -130,7 +136,7 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     post.author = previous
     val denied = new SecurityException("Not allowed")
     val loader = new EntityLoader {
-      override def load(id: UUID, clazz: Class[?]): Any = throw denied
+      override def load(id: util.UUID, clazz: Class[?]): Any = throw denied
     }
     val failure = intercept[SecurityException] {
       prepare(post, s"""{"author":{"id":"${previous.id}","name":"Unwanted"}}""", loader).applyChanges()
@@ -153,10 +159,10 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
   test("a loader result must match the declared reference type") {
     val post = new ReferencePost()
     val loader = new EntityLoader {
-      override def load(id: UUID, clazz: Class[?]): Any = "wrong type"
+      override def load(id: util.UUID, clazz: Class[?]): Any = "wrong type"
     }
     intercept[IllegalArgumentException] {
-      prepare(post, s"""{"author":{"id":"${UUID.randomUUID()}"}}""", loader).applyChanges()
+      prepare(post, s"""{"author":{"id":"${util.UUID.randomUUID()}"}}""", loader).applyChanges()
     }
     assert(post.author == null)
   }
@@ -164,10 +170,10 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
   test("an EntityProvider returned by the loader must have the requested identity") {
     val post = new ReferencePost()
     val loader = new EntityLoader {
-      override def load(id: UUID, clazz: Class[?]): Any = new ReferenceAuthor()
+      override def load(id: util.UUID, clazz: Class[?]): Any = new ReferenceAuthor()
     }
     intercept[IllegalArgumentException] {
-      prepare(post, s"""{"author":{"id":"${UUID.randomUUID()}"}}""", loader).applyChanges()
+      prepare(post, s"""{"author":{"id":"${util.UUID.randomUUID()}"}}""", loader).applyChanges()
     }
     assert(post.author == null)
   }
@@ -177,9 +183,9 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     profile.address = new ReferenceAddress()
     val previous = profile.address
     val target = new ReferenceAddress()
-    val expected = UUID.randomUUID()
+    val expected = util.UUID.randomUUID()
     val loader = new EntityLoader {
-      override def load(id: UUID, clazz: Class[?]): Any = {
+      override def load(id: util.UUID, clazz: Class[?]): Any = {
         assert(id == expected && clazz == classOf[ReferenceAddress])
         target
       }
@@ -194,7 +200,7 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     val post = new ReadOnlyReferencePost()
     val previous = new ReferenceAuthor()
     post.author = previous
-    prepare(post, s"""{"author":{"id":"${UUID.randomUUID()}"}}""").applyChanges()
+    prepare(post, s"""{"author":{"id":"${util.UUID.randomUUID()}"}}""").applyChanges()
     assert(post.author eq previous)
   }
 
@@ -237,9 +243,9 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     val target = new ReferenceAuthor()
     post.reviewers.add(previous)
     val identity = post.reviewers
-    val loaded = new util.ArrayList[UUID]()
+    val loaded = new util.ArrayList[util.UUID]()
     val loader = new EntityLoader {
-      override def load(id: UUID, clazz: Class[?]): Any = {
+      override def load(id: util.UUID, clazz: Class[?]): Any = {
         assert(clazz == classOf[ReferenceAuthor])
         loaded.add(id)
         if (id == previous.id) previous else if (id == target.id) target else null
@@ -256,7 +262,7 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     val previous = new ReferenceAuthor()
     post.reviewers.add(previous)
     val loader = new EntityLoader {
-      override def load(id: UUID, clazz: Class[?]): Any = throw new SecurityException("Not allowed")
+      override def load(id: util.UUID, clazz: Class[?]): Any = throw new SecurityException("Not allowed")
     }
     intercept[SecurityException] {
       prepare(post, s"""{"reviewers":[{"id":"${previous.id}","name":"Unwanted"}]}""", loader).applyChanges()
@@ -268,10 +274,10 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
   test("missing collection references are not silently replaced with new objects") {
     val post = new ReferencePost()
     val loader = new EntityLoader {
-      override def load(id: UUID, clazz: Class[?]): Any = null
+      override def load(id: util.UUID, clazz: Class[?]): Any = null
     }
     intercept[IllegalArgumentException] {
-      prepare(post, s"""{"reviewers":[{"id":"${UUID.randomUUID()}"}]}""", loader).applyChanges()
+      prepare(post, s"""{"reviewers":[{"id":"${util.UUID.randomUUID()}"}]}""", loader).applyChanges()
     }
     assert(post.reviewers.isEmpty)
   }
@@ -309,7 +315,7 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     previous.member = member
     val target = new ReferenceBiography()
     val loader = new EntityLoader {
-      override def load(id: UUID, clazz: Class[?]): Any = {
+      override def load(id: util.UUID, clazz: Class[?]): Any = {
         assert(id == target.id && clazz == classOf[ReferenceBiography])
         target
       }
@@ -328,7 +334,7 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     previous.biography = biography
     val target = new ReferenceMember()
     val loader = new EntityLoader {
-      override def load(id: UUID, clazz: Class[?]): Any = target
+      override def load(id: util.UUID, clazz: Class[?]): Any = target
     }
     prepare(biography, s"""{"member":{"id":"${target.id}"}}""", loader).applyChanges()
     assert(previous.biography == null)
@@ -350,8 +356,11 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
   test("schema rules on a loaded target still protect read-only nested properties") {
     val post = new ReferencePost()
     val target = new ReferenceAuthor()
-    prepare(post, s"""{"author":{"id":"${target.id}","name":"Updated","internalNote":"Unwanted"}}""",
-      loaderFor(target)).applyChanges()
+    prepare(
+      post,
+      s"""{"author":{"id":"${target.id}","name":"Updated","internalNote":"Unwanted"}}""",
+      loaderFor(target)
+    ).applyChanges()
     assert(post.author eq target)
     assert(target.name == "Updated")
     assert(target.internalNote == "Private")
@@ -360,14 +369,29 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
   test("a selected relationship uses its subgraph when merging a loaded reference") {
     val post = new ReferencePost()
     val target = new ReferenceAuthor()
-    val graph = stub(classOf[EntityGraph[?]], Map("getAttributeNodes" -> util.Arrays.asList(
-      attribute("author", Map(classOf[ReferenceAuthor] -> stub(classOf[Subgraph[?]],
-        Map("getAttributeNodes" -> util.Arrays.asList(attribute("name"))))))
-    )))
-    JsonMapper.prepare(JsonParser.parse(
-      s"""{"author":{"id":"${target.id}","name":"Updated","version":99}}"""),
-      post, TypeResolver.resolve(classOf[ReferencePost]), graph, loaderFor(target),
-      inject, factory.getValidator).applyChanges()
+    val graph = stub(
+      classOf[EntityGraph[?]],
+      Map("getAttributeNodes" -> util.Arrays.asList(
+        attribute(
+          "author",
+          Map(classOf[ReferenceAuthor] -> stub(
+            classOf[Subgraph[?]],
+            Map("getAttributeNodes" -> util.Arrays.asList(attribute("name")))
+          ))
+        )
+      ))
+    )
+    JsonMapper.prepare(
+      JsonParser.parse(
+        s"""{"author":{"id":"${target.id}","name":"Updated","version":99}}"""
+      ),
+      post,
+      TypeResolver.resolve(classOf[ReferencePost]),
+      graph,
+      loaderFor(target),
+      inject,
+      factory.getValidator
+    ).applyChanges()
     assert(post.author eq target)
     assert(target.name == "Updated")
     assert(target.version == 0L)
@@ -376,9 +400,15 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
   test("an unselected relationship never reaches the loader") {
     val post = new ReferencePost()
     val graph = stub(classOf[EntityGraph[?]], Map("getAttributeNodes" -> util.Collections.emptyList()))
-    JsonMapper.prepare(JsonParser.parse(s"""{"author":{"id":"${UUID.randomUUID()}"}}"""),
-      post, TypeResolver.resolve(classOf[ReferencePost]), graph, unexpectedLoader,
-      inject, factory.getValidator).applyChanges()
+    JsonMapper.prepare(
+      JsonParser.parse(s"""{"author":{"id":"${util.UUID.randomUUID()}"}}"""),
+      post,
+      TypeResolver.resolve(classOf[ReferencePost]),
+      graph,
+      unexpectedLoader,
+      inject,
+      factory.getValidator
+    ).applyChanges()
     assert(post.author == null)
   }
 
@@ -410,8 +440,11 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
   }
 
   private def stub[T](clazz: Class[T], values: Map[String, AnyRef]): T =
-    Proxy.newProxyInstance(clazz.getClassLoader, Array(clazz),
-      (_, method, _) => values.getOrElse(method.getName, throw new UnsupportedOperationException(method.getName)))
+    Proxy.newProxyInstance(
+      clazz.getClassLoader,
+      Array(clazz),
+      (_, method, _) => values.getOrElse(method.getName, throw new UnsupportedOperationException(method.getName))
+    )
       .asInstanceOf[T]
 
   test("map size is validated against incoming entries before replacement") {
@@ -424,4 +457,3 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     assert(post.labels.size() == 1 && post.labels.get("old") == "Preserved")
   }
 }
-

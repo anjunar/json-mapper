@@ -15,12 +15,10 @@ import org.scalatest.matchers.should.Matchers
 import java.lang.annotation.ElementType
 import java.lang.reflect.{Constructor, Method}
 import java.util
-import java.util.UUID
 import scala.annotation.meta.field
-
 
 @JsonbSubtype(alias = "FlagFieldDto", `type` = classOf[FlagFieldDto])
 class FlagFieldDto extends AbstractFieldDto {
-  @(JsonbProperty @field) var enabled: Boolean = false
+  @(JsonbProperty @field)
+  var enabled: Boolean = false
 }
-

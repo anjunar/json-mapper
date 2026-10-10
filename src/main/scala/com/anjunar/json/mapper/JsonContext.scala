@@ -4,6 +4,7 @@ import com.anjunar.json.mapper.provider.DTO
 import com.anjunar.scala.universe.ResolvedClass
 import jakarta.persistence.EntityGraph
 import jakarta.validation.{ConstraintViolation, Validator}
+import java.util
 
 class JsonContext(
   val resolvedClass: ResolvedClass,
@@ -11,7 +12,7 @@ class JsonContext(
   val graph: EntityGraph[?],
   val loader: EntityLoader,
   val validator: Validator,
-  val inject: [T] => Class[T] => T,               
+  val inject: [T] => Class[T] => T,
   val parent: JsonContext,
   val name: String,
   val index: Int = -1
@@ -21,12 +22,12 @@ class JsonContext(
     parent.children.add(this)
   }
 
-  val children: java.util.List[JsonContext] = new java.util.ArrayList[JsonContext]()
+  val children: util.List[JsonContext] = new util.ArrayList[JsonContext]()
 
-  val violations: java.util.Set[ConstraintViolation[?]] = new java.util.HashSet[ConstraintViolation[?]]()
+  val violations: util.Set[ConstraintViolation[?]] = new util.HashSet[ConstraintViolation[?]]()
 
-  def flatten(): java.util.List[JsonContext] = {
-    val result = new java.util.ArrayList[JsonContext]()
+  def flatten(): util.List[JsonContext] = {
+    val result = new util.ArrayList[JsonContext]()
     result.add(this)
 
     val iterator = children.iterator()
@@ -46,8 +47,8 @@ class JsonContext(
     }
   }
 
-  def path(): java.util.List[String] = {
-    val parentPath = new java.util.ArrayList[String]()
+  def path(): util.List[String] = {
+    val parentPath = new util.ArrayList[String]()
 
     var cursor: JsonContext = this
 
@@ -58,12 +59,12 @@ class JsonContext(
       cursor = cursor.parent
     }
 
-    java.util.Collections.reverse(parentPath)
+    util.Collections.reverse(parentPath)
     parentPath
   }
 
-  def pathWithIndexes(): java.util.List[Any] = {
-    val parentPath = new java.util.ArrayList[Any]()
+  def pathWithIndexes(): util.List[Any] = {
+    val parentPath = new util.ArrayList[Any]()
 
     var cursor: JsonContext = this
 
@@ -76,7 +77,7 @@ class JsonContext(
       cursor = cursor.parent
     }
 
-    java.util.Collections.reverse(parentPath)
+    util.Collections.reverse(parentPath)
     parentPath
   }
 

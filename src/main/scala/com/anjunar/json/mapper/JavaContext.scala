@@ -2,17 +2,18 @@ package com.anjunar.json.mapper
 
 import com.anjunar.scala.universe.ResolvedClass
 import jakarta.persistence.EntityGraph
+import java.util
 
 class JavaContext(
   val resolvedClass: ResolvedClass,
   val graph: EntityGraph[?],
-  val inject : [T] => Class[T] => T,               
+  val inject: [T] => Class[T] => T,
   val parent: JavaContext,
   val name: String
 ) {
 
-  def path(): java.util.List[String] = {
-    val parentPath = new java.util.ArrayList[String]()
+  def path(): util.List[String] = {
+    val parentPath = new util.ArrayList[String]()
 
     var cursor: JavaContext = this
 
@@ -20,7 +21,7 @@ class JavaContext(
       cursor = cursor.parent
     }
 
-    java.util.Collections.reverse(parentPath)
+    util.Collections.reverse(parentPath)
     parentPath
   }
 

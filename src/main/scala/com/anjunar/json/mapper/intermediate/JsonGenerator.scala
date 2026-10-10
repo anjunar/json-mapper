@@ -1,16 +1,17 @@
 package com.anjunar.json.mapper.intermediate
 
 import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonBoolean, JsonNode, JsonNull, JsonNumber, JsonObject, JsonString}
+import java.lang.StringBuilder
 
 object JsonGenerator {
 
   def generate(jsonNode: JsonNode): String = {
-    val builder = new java.lang.StringBuilder()
+    val builder = new StringBuilder()
     appendJson(jsonNode, builder)
     builder.toString
   }
 
-  private def appendJson(node: JsonNode, builder: java.lang.StringBuilder): Unit =
+  private def appendJson(node: JsonNode, builder: StringBuilder): Unit =
     node match {
       case value: JsonObject =>
         builder.append('{')
@@ -60,7 +61,7 @@ object JsonGenerator {
         throw new IllegalStateException(s"Unexpected value: $node")
     }
 
-  private def escapeJsonString(value: String, builder: java.lang.StringBuilder): Unit = {
+  private def escapeJsonString(value: String, builder: StringBuilder): Unit = {
     var index = 0
     val length = value.length
     while (index < length) {

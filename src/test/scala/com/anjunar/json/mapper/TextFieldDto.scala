@@ -15,11 +15,10 @@ import org.scalatest.matchers.should.Matchers
 import java.lang.annotation.ElementType
 import java.lang.reflect.{Constructor, Method}
 import java.util
-import java.util.UUID
 import scala.annotation.meta.field
-
 
 @JsonbSubtype(alias = "TextFieldDto", `type` = classOf[TextFieldDto])
 class TextFieldDto extends AbstractFieldDto {
-  @(JsonbProperty @field) var value: String = null
+  @(JsonbProperty @field)
+  var value: String = null
 }

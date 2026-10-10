@@ -6,7 +6,7 @@ import java.lang.reflect.Member
 import java.util
 import java.util.concurrent.CompletionStage
 
-trait JPAListAttribute[X,E](val collectionAttribute: ListAttribute[X,E]) extends ListAttribute[X,E] {
+trait JPAListAttribute[X, E](val collectionAttribute: ListAttribute[X, E]) extends ListAttribute[X, E] {
 
   override def getCollectionType: PluralAttribute.CollectionType = collectionAttribute.getCollectionType
 
@@ -14,7 +14,8 @@ trait JPAListAttribute[X,E](val collectionAttribute: ListAttribute[X,E]) extends
 
   override def getName: String = collectionAttribute.getName
 
-  override def getPersistentAttributeType: Attribute.PersistentAttributeType = collectionAttribute.getPersistentAttributeType
+  override def getPersistentAttributeType: Attribute.PersistentAttributeType =
+    collectionAttribute.getPersistentAttributeType
 
   override def getDeclaringType: ManagedType[X] = collectionAttribute.getDeclaringType
 

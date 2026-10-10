@@ -1,6 +1,5 @@
 package com.anjunar.json.mapper.schema
 
-
 import com.anjunar.json.mapper.schema.property.{ListProperty, Property, SetProperty, SingularProperty}
 import com.anjunar.scala.universe.TypeResolver
 import reflect.{ClassDescriptor, ParameterizedTypeDescriptor, TypeDescriptor}
@@ -21,29 +20,38 @@ abstract class EntitySchema[T](val entityManager: EntityManager = null) {
 
   def findProperty[V](name: String): Property[T, V] = properties(name).asInstanceOf[Property[T, V]]
 
-  protected inline def property[V](inline selector: T => V,
-                                   rule: Class[? <: VisibilityRule[T]] = classOf[DefaultRule[T]]): Property[T, V] = {
+  protected inline def property[V](
+    inline selector: T => V,
+    rule: Class[? <: VisibilityRule[T]] = classOf[DefaultRule[T]]
+  ): Property[T, V] = {
     val propertyWithAccessor = PropertySupport.makeProperty(selector)
     val value = new Property[T, V](propertyWithAccessor.accessor, propertyWithAccessor.descriptor, rule)
     properties.put(propertyWithAccessor.descriptor.name, value.asInstanceOf[Property[T, Any]])
     value
   }
 
-  protected inline def reference[V](inline selector: T => V,
-                                    rule: Class[? <: VisibilityRule[T]] = classOf[DefaultRule[T]]): SingularProperty[T, V] = {
+  protected inline def reference[V](
+    inline selector: T => V,
+    rule: Class[? <: VisibilityRule[T]] = classOf[DefaultRule[T]]
+  ): SingularProperty[T, V] = {
     val propertyWithAccessor = PropertySupport.makeProperty(selector)
 
     val metamodel = entityManager.getMetamodel
     val entityType = metamodel.entity(ownerEntityType)
-    val attribute = entityType.getSingularAttribute(propertyWithAccessor.descriptor.name).asInstanceOf[SingularAttribute[T, V] & PersistentAttribute[T, V] & SqmPathSource[V]]
+    val attribute =
+      entityType.getSingularAttribute(propertyWithAccessor.descriptor.name).asInstanceOf[SingularAttribute[T, V] &
+        PersistentAttribute[T, V] & SqmPathSource[V]]
 
-    val value = new SingularProperty[T, V](propertyWithAccessor.accessor, propertyWithAccessor.descriptor, rule, attribute)
+    val value =
+      new SingularProperty[T, V](propertyWithAccessor.accessor, propertyWithAccessor.descriptor, rule, attribute)
     properties.put(propertyWithAccessor.descriptor.name, value.asInstanceOf[Property[T, Any]])
     value
   }
 
-  protected inline def set[V](inline selector: T => V,
-                              rule: Class[? <: VisibilityRule[T]] = classOf[DefaultRule[T]]): SetProperty[T, V] = {
+  protected inline def set[V](
+    inline selector: T => V,
+    rule: Class[? <: VisibilityRule[T]] = classOf[DefaultRule[T]]
+  ): SetProperty[T, V] = {
     val propertyWithAccessor = PropertySupport.makeProperty(selector)
 
     val metamodel = entityManager.getMetamodel
@@ -55,8 +63,10 @@ abstract class EntitySchema[T](val entityManager: EntityManager = null) {
     value
   }
 
-  protected inline def list[V](inline selector: T => V,
-                               rule: Class[? <: VisibilityRule[T]] = classOf[DefaultRule[T]]): ListProperty[T, V] = {
+  protected inline def list[V](
+    inline selector: T => V,
+    rule: Class[? <: VisibilityRule[T]] = classOf[DefaultRule[T]]
+  ): ListProperty[T, V] = {
     val propertyWithAccessor = PropertySupport.makeProperty(selector)
 
     val metamodel = entityManager.getMetamodel
@@ -70,9 +80,9 @@ abstract class EntitySchema[T](val entityManager: EntityManager = null) {
 
   private def extractRawType(typeDescriptor: TypeDescriptor): Class[?] = {
     typeDescriptor match {
-      case cd: ClassDescriptor => Class.forName(cd.typeName)
+      case cd: ClassDescriptor             => Class.forName(cd.typeName)
       case pd: ParameterizedTypeDescriptor => Class.forName(pd.rawType.typeName)
-      case _ => Class.forName(typeDescriptor.typeName)
+      case _                               => Class.forName(typeDescriptor.typeName)
     }
   }
 
@@ -85,7 +95,7 @@ abstract class EntitySchema[T](val entityManager: EntityManager = null) {
 
       extractOwnerType(current.getGenericSuperclass) match {
         case Some(value) => value
-        case None => loop(current.getSuperclass)
+        case None        => loop(current.getSuperclass)
       }
     }
 

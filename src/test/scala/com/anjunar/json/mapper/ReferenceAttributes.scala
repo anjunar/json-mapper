@@ -15,10 +15,8 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import java.lang.reflect.Proxy
 import java.util
-import java.util.UUID
 
 class ReferenceAttributes {
   @JsonbAnyProperty @JsonbProperty @Size(max = 1)
   var attributes: util.Map[String, Any] = new util.LinkedHashMap[String, Any]()
 }
-
