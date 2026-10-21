@@ -11,5 +11,5 @@ class SingularProperty[T, V](
   propertyAccessor: PropertyAccessor[T, V],
   propertyDescriptor: PropertyDescriptor,
   rule: Class[? <: VisibilityRule[T]],
-  collectionAttribute: SingularAttribute[T, V] & PersistentAttribute[T, V] & SqmPathSource[V]
-) extends Property[T, V](propertyAccessor, propertyDescriptor, rule), JPASingularAttribute[T, V](collectionAttribute)
+  attribute: => SingularAttribute[T, V] & PersistentAttribute[T, V] & SqmPathSource[V]
+) extends Property[T, V](propertyAccessor, propertyDescriptor, rule), JPASingularAttribute[T, V](() => attribute)

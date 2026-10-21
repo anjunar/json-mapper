@@ -3,7 +3,9 @@ package com.anjunar.json.mapper
 import com.anjunar.json.mapper.deserializer.DeserializerRegistry
 import com.anjunar.json.mapper.intermediate.JsonGenerator
 import com.anjunar.json.mapper.intermediate.model.JsonNode
-import com.anjunar.json.mapper.schema.{JsonSchema, JsonSchemaDerivation}
+import com.anjunar.json.mapper.schema.{EntitySchema, JsonSchema, JsonSchemaDerivation}
+import com.anjunar.json.mapper.schema.property.Property
+import scala.jdk.CollectionConverters.*
 import com.anjunar.scala.universe.introspector.AnnotationProperty
 import java.lang.reflect.Type
 import com.anjunar.json.mapper.serializers.{Serializer, SerializerRegistry}
@@ -21,6 +23,32 @@ object JsonMapper {
     entityIdentity: Boolean = true
   ): JsonSchema =
     JsonSchemaDerivation.model(target, select, entityIdentity)
+
+  /** Export only properties registered by the data owner's EntitySchema. No rules or JPA attributes are evaluated. */
+  def schema[E](metadata: EntitySchema[E]): JsonSchema =
+    JsonSchemaDerivation.model(metadata.ownerEntityType, property => metadata.properties.contains(property.name))
+
+  /** A typed projection of existing properties; validation metadata and JSON aliases remain mapper-owned. */
+  def schema[E](
+    metadata: EntitySchema[E],
+    selected: Seq[Property[E, ?]],
+    required: Seq[Property[E, ?]],
+    entityIdentity: Boolean
+  ): JsonSchema = {
+    require(
+      selected.forall(property => metadata.properties.get(property.name).contains(property)),
+      "Foreign EntitySchema property"
+    )
+    require(required.forall(selected.contains), "Required properties must belong to the projection")
+    val selectedNames = selected.map(_.name).toSet
+    val result =
+      JsonSchemaDerivation.model(metadata.ownerEntityType, property => selectedNames(property.name), entityIdentity)
+    val aliases = JsonSchemaDerivation.properties(metadata.ownerEntityType).map(property =>
+      property.name -> JsonSchemaDerivation.name(property)
+    ).toMap
+    require(selected.forall(property => aliases.contains(property.name)), "Projected property has no JSON binding")
+    result.copy(required = required.map(property => aliases(property.name)).asJava)
+  }
 
   def prepare[T](
     jsonNode: JsonNode,

@@ -218,3 +218,11 @@ Omitted fields stay unchanged; explicit empty strings, empty collections and nul
 EntitySchema rules remain responsible for field access.
 
 These additions are local development changes; `publishLocal` is not a public artifact release.
+
+## EntitySchema export preview
+
+The local `1.1.8-SNAPSHOT` adds `JsonMapper.schema(entitySchema)` and a typed projection overload taking selected and required `Property` references. JSON aliases, types and validation constraints still come from the mapper's existing metadata. A projection may only select properties registered by that exact EntitySchema; it grants no field access.
+
+EntitySchema and its JPA property delegates defer EntityManager/metamodel resolution until a JPA attribute is used. Reading structural schema metadata therefore needs neither a request EntityManager nor a database query. Pass a by-name EntityManager expression through application schema base classes to retain this behavior. No caller-specific permissions or EntityManagers are stored in exported JSON schemas.
+
+Run `sbtn test` and `sbtn publishLocal` before consuming this snapshot. It is not a published stable release.

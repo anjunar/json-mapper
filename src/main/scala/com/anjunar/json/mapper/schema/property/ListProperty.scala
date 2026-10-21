@@ -9,5 +9,5 @@ class ListProperty[T, V](
   propertyAccessor: PropertyAccessor[T, V],
   propertyDescriptor: PropertyDescriptor,
   rule: Class[? <: VisibilityRule[T]],
-  collectionAttribute: ListAttribute[T, V]
-) extends Property[T, V](propertyAccessor, propertyDescriptor, rule), JPAListAttribute[T, V](collectionAttribute)
+  attribute: => ListAttribute[T, V]
+) extends Property[T, V](propertyAccessor, propertyDescriptor, rule), JPAListAttribute[T, V](() => attribute)

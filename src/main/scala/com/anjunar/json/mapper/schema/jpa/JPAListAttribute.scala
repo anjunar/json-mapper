@@ -6,7 +6,9 @@ import java.lang.reflect.Member
 import java.util
 import java.util.concurrent.CompletionStage
 
-trait JPAListAttribute[X, E](val collectionAttribute: ListAttribute[X, E]) extends ListAttribute[X, E] {
+trait JPAListAttribute[X, E](resolveAttribute: () => ListAttribute[X, E]) extends ListAttribute[X, E] {
+
+  def collectionAttribute: ListAttribute[X, E] = resolveAttribute()
 
   override def getCollectionType: PluralAttribute.CollectionType = collectionAttribute.getCollectionType
 

@@ -9,8 +9,10 @@ import org.hibernate.query.sqm.tree.domain.{SqmDomainType, SqmPath}
 
 import java.lang.reflect.Member
 
-trait JPASingularAttribute[X, T](val collectionAttribute: SingularAttribute[X, T] & PersistentAttribute[X, T] &
+trait JPASingularAttribute[X, T](resolveAttribute: () => SingularAttribute[X, T] & PersistentAttribute[X, T] &
   SqmPathSource[T]) extends SingularAttribute[X, T] with PersistentAttribute[X, T] with SqmPathSource[T] {
+
+  def collectionAttribute: SingularAttribute[X, T] & PersistentAttribute[X, T] & SqmPathSource[T] = resolveAttribute()
 
   override def isId: Boolean = collectionAttribute.isId
 

@@ -12,11 +12,13 @@ import org.hibernate.query.sqm.SqmPathSource
 import java.lang.reflect.{ParameterizedType, Type}
 import scala.collection.mutable
 
-abstract class EntitySchema[T](val entityManager: EntityManager = null) {
+abstract class EntitySchema[T](manager: => EntityManager = null) {
+
+  def entityManager: EntityManager = manager
 
   val properties: mutable.Map[String, Property[T, Any]] = new mutable.LinkedHashMap[String, Property[T, Any]]()
 
-  private lazy val ownerEntityType: Class[T] = resolveOwnerEntityType(getClass).asInstanceOf[Class[T]]
+  lazy val ownerEntityType: Class[T] = resolveOwnerEntityType(getClass).asInstanceOf[Class[T]]
 
   def findProperty[V](name: String): Property[T, V] = properties(name).asInstanceOf[Property[T, V]]
 
@@ -36,9 +38,9 @@ abstract class EntitySchema[T](val entityManager: EntityManager = null) {
   ): SingularProperty[T, V] = {
     val propertyWithAccessor = PropertySupport.makeProperty(selector)
 
-    val metamodel = entityManager.getMetamodel
-    val entityType = metamodel.entity(ownerEntityType)
-    val attribute =
+    def metamodel = entityManager.getMetamodel
+    def entityType = metamodel.entity(ownerEntityType)
+    def attribute =
       entityType.getSingularAttribute(propertyWithAccessor.descriptor.name).asInstanceOf[SingularAttribute[T, V] &
         PersistentAttribute[T, V] & SqmPathSource[V]]
 
@@ -54,9 +56,9 @@ abstract class EntitySchema[T](val entityManager: EntityManager = null) {
   ): SetProperty[T, V] = {
     val propertyWithAccessor = PropertySupport.makeProperty(selector)
 
-    val metamodel = entityManager.getMetamodel
-    val entityType = metamodel.entity(ownerEntityType)
-    val attribute = entityType.getSet(propertyWithAccessor.descriptor.name).asInstanceOf[SetAttribute[T, V]]
+    def metamodel = entityManager.getMetamodel
+    def entityType = metamodel.entity(ownerEntityType)
+    def attribute = entityType.getSet(propertyWithAccessor.descriptor.name).asInstanceOf[SetAttribute[T, V]]
 
     val value = new SetProperty[T, V](propertyWithAccessor.accessor, propertyWithAccessor.descriptor, rule, attribute)
     properties.put(propertyWithAccessor.descriptor.name, value.asInstanceOf[Property[T, Any]])
@@ -69,9 +71,9 @@ abstract class EntitySchema[T](val entityManager: EntityManager = null) {
   ): ListProperty[T, V] = {
     val propertyWithAccessor = PropertySupport.makeProperty(selector)
 
-    val metamodel = entityManager.getMetamodel
-    val entityType = metamodel.entity(ownerEntityType)
-    val attribute = entityType.getList(propertyWithAccessor.descriptor.name).asInstanceOf[ListAttribute[T, V]]
+    def metamodel = entityManager.getMetamodel
+    def entityType = metamodel.entity(ownerEntityType)
+    def attribute = entityType.getList(propertyWithAccessor.descriptor.name).asInstanceOf[ListAttribute[T, V]]
 
     val value = new ListProperty[T, V](propertyWithAccessor.accessor, propertyWithAccessor.descriptor, rule, attribute)
     properties.put(propertyWithAccessor.descriptor.name, value.asInstanceOf[Property[T, Any]])

@@ -9,5 +9,5 @@ class SetProperty[T, V](
   propertyAccessor: PropertyAccessor[T, V],
   propertyDescriptor: PropertyDescriptor,
   rule: Class[? <: VisibilityRule[T]],
-  collectionAttribute: SetAttribute[T, V]
-) extends Property[T, V](propertyAccessor, propertyDescriptor, rule), JPASetAttribute[T, V](collectionAttribute)
+  attribute: => SetAttribute[T, V]
+) extends Property[T, V](propertyAccessor, propertyDescriptor, rule), JPASetAttribute[T, V](() => attribute)
