@@ -182,3 +182,39 @@ stops after validation so the release is published by hand in the portal; `-Skip
 ## License
 
 JSON Mapper is available under the [MIT License](LICENSE).
+
+## JSON Schema and typed partial commands
+
+The local development API exposes the mapper's own resolved property metadata as JSON Schema:
+
+```scala
+import com.anjunar.json.mapper.JsonMapper
+import com.anjunar.json.mapper.schema.JsonSchema
+
+val schema = JsonMapper.schema(classOf[UserDto])
+val text = JsonSchema.encode(schema)
+val nativeJavaMap = JsonSchema.toJavaMap(schema)
+```
+
+Names, inherited properties, generic collection/map elements and standard validation bounds come from the
+same classes used for binding. Recursive models use embedded `$defs`/`$ref`; schema processing fetches no URLs.
+Entity output contracts permit values omitted by the normal mapper. Dynamic visibility/write rules and custom
+class-level validation still execute at runtime; exporting a schema does not grant access to a field.
+
+A command can contain a partial entity document without copying every entity field into a DTO:
+
+```scala
+import com.anjunar.json.mapper.JsonPatch
+
+class UpdateUser extends DTO {
+  @JsonbProperty var changes: JsonPatch[UserDto] = null
+}
+```
+
+Binding this command only captures the typed patch. It neither loads a relationship nor mutates an entity.
+Pass `JsonParser.parse(command.changes.encoded)` through the existing `JsonMapper.prepare` call against the
+actual target and its graph, loader, injection and validator, then apply that prepared change exactly once.
+Omitted fields stay unchanged; explicit empty strings, empty collections and nulls retain their meaning.
+EntitySchema rules remain responsible for field access.
+
+These additions are local development changes; `publishLocal` is not a public artifact release.

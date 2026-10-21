@@ -1,6 +1,7 @@
 package com.anjunar.json.mapper.serializers
 
 import com.anjunar.json.mapper.annotations.JsonbAnyProperty
+import com.anjunar.json.mapper.JsonPatch
 import com.anjunar.scala.universe.introspector.AnnotationProperty
 
 import java.time.temporal.{Temporal, TemporalAmount}
@@ -24,6 +25,7 @@ object SerializerRegistry {
 
   def find[T](clazz: Class[T], instance: Any): Serializer[T] =
     (instance match {
+      case _: JsonPatch[?]       => new JsonPatchSerializer
       case _: String             => stringSerializer
       case _: util.Collection[?] => arraySerializer
       case _: Boolean            => booleanSerializer

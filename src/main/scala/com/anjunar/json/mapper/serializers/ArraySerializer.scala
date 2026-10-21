@@ -37,7 +37,8 @@ class ArraySerializer extends Serializer[util.Collection[?]] {
         context.graph,
         context.inject,
         context,
-        context.name
+        context.name,
+        if (context.schema == null) null else context.schema.items
       )
 
       val node = serializer.serialize(any, javaContext)

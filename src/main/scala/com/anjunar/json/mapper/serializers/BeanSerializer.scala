@@ -36,6 +36,8 @@ class BeanSerializer extends Serializer[Any] {
     while (index < properties.length) {
       val property = properties(index)
       val isAnyProperty = property.findAnnotation(classOf[JsonbAnyProperty]) != null
+      val jsonProperty = property.findAnnotation(classOf[JsonbProperty])
+      val jsonName = if (jsonProperty.value().isEmpty) property.name else jsonProperty.value()
 
       val skipByGraph =
         !isAnyProperty &&
@@ -43,7 +45,7 @@ class BeanSerializer extends Serializer[Any] {
           classOf[EntityProvider].isAssignableFrom(context.resolvedClass.raw) &&
           (!isJsonGraphProperty(property) && context.graph != null && !isSelectedByGraph(context, property))
 
-      if (skipByGraph) {
+      if (skipByGraph || (!isAnyProperty && !context.includes(jsonName))) {
         index += 1
       } else {
         if (schemaProvider != null) {
@@ -86,7 +88,7 @@ class BeanSerializer extends Serializer[Any] {
         }
       }
     }
-    if (!json.value.isEmpty) {
+    if (!json.value.isEmpty && context.includes("@type")) {
       val subtype = input.getClass.getAnnotation(classOf[JsonbSubtype])
       val typeProperty = if (subtype != null) {
         new JsonString(subtype.alias())
@@ -111,21 +113,24 @@ class BeanSerializer extends Serializer[Any] {
         case _: Exception => null
       }
 
+    val annotation = property.findAnnotation(classOf[JsonbProperty])
+    val jsonName = if (annotation.value().isEmpty) property.name else annotation.value()
+    val preserveEmpty = context.required(jsonName)
     value match {
       case booleanValue: JavaBoolean =>
-        if (booleanValue.booleanValue()) {
+        if (preserveEmpty || booleanValue.booleanValue()) {
           convertToJsonNode(property, nodes, booleanValue, context)
         }
       case booleanValue: Boolean =>
-        if (booleanValue) {
+        if (preserveEmpty || booleanValue) {
           convertToJsonNode(property, nodes, Boolean.box(booleanValue), context)
         }
       case stringValue: String =>
-        if (!stringValue.isEmpty) {
+        if (preserveEmpty || !stringValue.isEmpty) {
           convertToJsonNode(property, nodes, stringValue, context)
         }
       case collectionValue: util.Collection[?] =>
-        if (!collectionValue.isEmpty) {
+        if (preserveEmpty || !collectionValue.isEmpty) {
           convertToJsonNode(property, nodes, collectionValue, context)
         }
       case _ =>
@@ -157,7 +162,8 @@ class BeanSerializer extends Serializer[Any] {
       context.graph,
       context.inject,
       context,
-      property.name
+      property.name,
+      context.childSchema(property.name)
     )
 
     val serializer = SerializerRegistry.findPropertySerializer(property, value)
@@ -204,7 +210,8 @@ class BeanSerializer extends Serializer[Any] {
       context.graph,
       context.inject,
       context,
-      property.name
+      property.name,
+      context.childSchema(name)
     )
 
     val converterAnnotation = property.findAnnotation(classOf[UseConverter])
@@ -226,7 +233,7 @@ class BeanSerializer extends Serializer[Any] {
 
     jsonNode match {
       case value: JsonObject =>
-        if (!value.value.isEmpty) {
+        if (context.required(name) || !value.value.isEmpty) {
           nodes.put(name, jsonNode)
         }
       case _ =>
