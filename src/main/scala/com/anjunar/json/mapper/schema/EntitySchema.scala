@@ -22,6 +22,22 @@ abstract class EntitySchema[T](manager: => EntityManager = null) {
 
   def findProperty[V](name: String): Property[T, V] = properties(name).asInstanceOf[Property[T, V]]
 
+  /** Every registered property. */
+  def all: Projection[T] = Projection(this, properties.values.toSeq)
+
+  def fields(selected: Property[T, ?]*): Projection[T] = Projection(this, selected)
+
+  /** The attributes of a named entity graph in declared order, plus transient presentation properties. */
+  def graph(name: String, presentation: Property[T, ?]*): Projection[T] = {
+    val selected = JsonSchemaDerivation.graphAttributes(ownerEntityType, name).map(attribute =>
+      properties.getOrElse(
+        attribute,
+        throw IllegalArgumentException(s"Graph $name selects $attribute, which this EntitySchema does not register")
+      )
+    )
+    Projection(this, selected ++ presentation, Some(name))
+  }
+
   protected inline def property[V](
     inline selector: T => V,
     rule: Class[? <: VisibilityRule[T]] = classOf[DefaultRule[T]]

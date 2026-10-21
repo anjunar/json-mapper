@@ -207,7 +207,11 @@ object JsonSchemaDerivation {
   }
 
   /** Named graphs select persisted properties; explicit transient presentation fields may be added by the owner. */
-  def graph(target: Type, graphName: String, presentation: Set[String] = Set.empty): Set[String] = {
+  def graph(target: Type, graphName: String, presentation: Set[String] = Set.empty): Set[String] =
+    graphAttributes(target, graphName).toSet ++ presentation
+
+  /** Attribute names of a named entity graph in declared order. */
+  def graphAttributes(target: Type, graphName: String): Seq[String] = {
     val metadata = TypeResolver.resolve(target)
     val graphs =
       Option(metadata.findAnnotation(classOf[NamedEntityGraphs])).toSeq.flatMap(_.value()) ++
@@ -215,7 +219,7 @@ object JsonSchemaDerivation {
     val selected = graphs
       .find(_.name() == graphName)
       .getOrElse(throw IllegalArgumentException(s"Unknown graph: $graphName"))
-    selected.attributeNodes().map(_.value()).toSet ++ presentation
+    selected.attributeNodes().toSeq.map(_.value())
   }
 
 }
