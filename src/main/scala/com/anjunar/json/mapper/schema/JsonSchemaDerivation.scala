@@ -1,6 +1,7 @@
 package com.anjunar.json.mapper.schema
 
 import com.anjunar.json.mapper.JsonPatch
+import com.anjunar.json.mapper.annotations.UseConverter
 import com.anjunar.json.mapper.provider.{DTO, EntityProvider}
 import com.anjunar.scala.universe.{ResolvedClass, TypeResolver}
 import com.anjunar.scala.universe.introspector.{AnnotationIntrospector, AnnotationProperty}
@@ -92,7 +93,10 @@ object JsonSchemaDerivation {
 
   private def field(property: AnnotationProperty, context: Context): JsonSchema = {
 
-    var schema = value(property.propertyType, context)
+    // A converter owns the wire form of its property, always a string, whatever the Java type looks like.
+    var schema =
+      if (property.findAnnotation(classOf[UseConverter]) != null) JsonSchema("string")
+      else value(property.propertyType, context)
     Option(property.findAnnotation(classOf[Size])).foreach { size =>
       schema =
         schema.`type` match {

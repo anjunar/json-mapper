@@ -209,6 +209,22 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     result.primaryTag.label shouldBe "converted"
   }
 
+  test("a converter property that does not receive a string reports its field path") {
+    val error = intercept[ErrorRequestException] {
+      JsonMapper.deserialize(
+        JsonParser.parse("""{"primaryTag":{"label":"as object"}}"""),
+        new ConvertedProfileDto,
+        TypeResolver.resolve(classOf[ConvertedProfileDto]),
+        null,
+        nullLoader,
+        noInject,
+        emptyValidator
+      )
+    }
+    error.errors.size() shouldBe 1
+    error.errors.get(0).path.get(error.errors.get(0).path.size() - 1) shouldBe "primaryTag"
+  }
+
   test("deserialize should collect unknown properties into JsonAnyProperty map") {
     val profile = new ProfileDto
     profile.primaryTag = new TagDto

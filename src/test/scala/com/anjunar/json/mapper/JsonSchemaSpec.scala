@@ -36,6 +36,12 @@ class JsonSchemaSpec extends AnyFunSuite {
     assert(schema.required.asScala.contains("label"))
   }
 
+  test("a converter property is described by its string wire form, not by its Java type") {
+    val schema = jackson.readTree(JsonSchema.encode(JsonMapper.schema(classOf[ConvertedProfileDto])))
+    assert(schema.at("/properties/primaryTag/type").asText() == "string")
+    assert(!schema.at("/properties/primaryTag").has("properties"))
+  }
+
   test("numbers, decimals, enums, sets and binary values match their JSON representations") {
     val schema = jackson.readTree(JsonSchema.encode(JsonMapper.schema(classOf[SchemaProbe])))
     assert(schema.at("/properties/price/type").asText() == "number")

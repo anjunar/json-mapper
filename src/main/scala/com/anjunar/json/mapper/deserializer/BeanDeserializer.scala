@@ -1,6 +1,6 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.JsonContext
+import com.anjunar.json.mapper.{ErrorRequest, ErrorRequestException, JsonContext}
 import com.anjunar.json.mapper.annotations.{JsonbAnyProperty, JsonbGraphProperty, UseConverter}
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonNull, JsonObject}
 import com.anjunar.json.mapper.provider.{DTO, EntityProvider}
@@ -206,7 +206,12 @@ class BeanDeserializer extends Deserializer[Any] {
     } else {
       val rawValue = deserializeValue(TypeResolver.resolve(classOf[String]), property.name, oldValue, context, node)
       if (!rawValue.isInstanceOf[String]) {
-        throw new IllegalArgumentException("Converter only support string type")
+        // The client sees which field needs a string instead of an error without a location.
+        val path = new util.ArrayList[Any](context.pathWithIndexes())
+        path.add(property.name)
+        throw new ErrorRequestException(
+          util.List.of(new ErrorRequest(path, "This field is sent as a string."))
+        )
       }
 
       val converter = useConverter.value().getDeclaredConstructor().newInstance()
