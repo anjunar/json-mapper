@@ -1,8 +1,8 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.{BeanMetadata, DeserializationContext, ErrorRequest, ErrorRequestException}
+import com.anjunar.json.mapper.{BeanMetadata, DeserializationContext, InvalidValue, Subtypes}
 import com.anjunar.json.mapper.annotations.UseConverter
-import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonNull, JsonObject}
+import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonNull, JsonObject, JsonString}
 import com.anjunar.json.mapper.provider.{DTO, EntityProvider}
 import com.anjunar.json.mapper.schema.BeanSchema
 import com.anjunar.scala.universe.introspector.{AnnotationIntrospector, AnnotationProperty}
@@ -46,7 +46,7 @@ class BeanDeserializer extends Deserializer[Any] {
 
         context.instance
       case _ =>
-        throw new IllegalArgumentException("json must be a object")
+        context.reject("This field expects an object.")
     }
 
   private def handleProperty(
@@ -92,16 +92,23 @@ class BeanDeserializer extends Deserializer[Any] {
 
     handledNames.add(jsonName)
 
-    if (property.findAnnotation(classOf[UseConverter]) != null) {
-      handleNormalProperty(node, property, context, oldValue)
-    } else if (classOf[DTO].isAssignableFrom(propertyType) || classOf[EntityProvider].isAssignableFrom(propertyType)) {
-      handleEntityProperty(node, property, context, oldValue, propertyType)
-    } else if (classOf[util.Collection[?]].isAssignableFrom(propertyType)) {
-      handleCollectionProperty(node, property, context, oldValue)
-    } else if (classOf[util.Map[?, ?]].isAssignableFrom(propertyType)) {
-      handleMapProperty(node, property, context, oldValue)
-    } else {
-      handleNormalProperty(node, property, context, oldValue)
+    // An invalid value fails only its own field; the other fields are still checked so the client sees every error.
+    try {
+      if (property.findAnnotation(classOf[UseConverter]) != null) {
+        handleNormalProperty(node, property, context, oldValue)
+      } else if (
+        classOf[DTO].isAssignableFrom(propertyType) || classOf[EntityProvider].isAssignableFrom(propertyType)
+      ) {
+        handleEntityProperty(node, property, context, oldValue)
+      } else if (classOf[util.Collection[?]].isAssignableFrom(propertyType)) {
+        handleCollectionProperty(node, property, context, oldValue)
+      } else if (classOf[util.Map[?, ?]].isAssignableFrom(propertyType)) {
+        handleMapProperty(node, property, context, oldValue)
+      } else {
+        handleNormalProperty(node, property, context, oldValue)
+      }
+    } catch {
+      case invalid: InvalidValue => context.run.reject(invalid.error)
     }
   }
 
@@ -131,7 +138,13 @@ class BeanDeserializer extends Deserializer[Any] {
     }
 
     val deserialized =
-      deserializePropertyValue(property, property.name, oldValue, context, json).asInstanceOf[util.Map[String, Any]]
+      try {
+        deserializePropertyValue(property, property.name, oldValue, context, json).asInstanceOf[util.Map[String, Any]]
+      } catch {
+        case invalid: InvalidValue =>
+          context.run.reject(invalid.error)
+          return
+      }
 
     context.checkForViolations(
       instance.getClass,
@@ -170,7 +183,14 @@ class BeanDeserializer extends Deserializer[Any] {
     val useConverter = property.findAnnotation(classOf[UseConverter])
 
     if (useConverter == null) {
-      val value = deserializeValue(property.propertyType, property.name, oldValue, context, node)
+      val value = node match {
+        // A nested bean without identity is merged in place, or created when the field is still empty.
+        case jsonObject: JsonObject if DeserializerRegistry.readsProperties(property.propertyType.raw) =>
+          val (target, targetType) = nestedTarget(jsonObject, property, context, oldValue, references = false)
+          deserializeValue(targetType, property.name, target, context, node)
+        case _ =>
+          deserializeValue(property.propertyType, property.name, oldValue, context, node)
+      }
       context.checkForViolations(
         instance.getClass,
         property.name,
@@ -178,18 +198,14 @@ class BeanDeserializer extends Deserializer[Any] {
         () => property.set(instance.asInstanceOf[AnyRef], value)
       )
     } else {
-      val rawValue = deserializeValue(TypeResolver.resolve(classOf[String]), property.name, oldValue, context, node)
-      if (!rawValue.isInstanceOf[String]) {
-        // The client sees which field needs a string instead of an error without a location.
-        val path = new util.ArrayList[Any](context.pathWithIndexes())
-        path.add(property.name)
-        throw new ErrorRequestException(
-          util.List.of(new ErrorRequest(path, "This field is sent as a string."))
-        )
+      // A converter owns the wire form of its property, which is always a string.
+      val rawValue = node match {
+        case value: JsonString => value.value
+        case _                 => context.reject("This field is sent as a string.", property.name)
       }
 
       val converter = useConverter.value().getDeclaredConstructor().newInstance()
-      val convertedValue = converter.toJava(rawValue.asInstanceOf[String], property.propertyType)
+      val convertedValue = converter.toJava(rawValue, property.propertyType)
 
       context.checkForViolations(
         instance.getClass,
@@ -215,7 +231,7 @@ class BeanDeserializer extends Deserializer[Any] {
       if (oldValue != null) {
         oldValue
       } else {
-        throw new IllegalStateException("Collection property must be initialized")
+        throw new IllegalStateException(s"Property '${property.name}' must be initialized before deserialization")
       }
 
     val deserialized = deserializeValue(
@@ -254,7 +270,7 @@ class BeanDeserializer extends Deserializer[Any] {
       if (oldValue != null) {
         oldValue
       } else {
-        throw new IllegalStateException("Collection property must be initialized")
+        throw new IllegalStateException(s"Property '${property.name}' must be initialized before deserialization")
       }
 
     val deserialized = deserializeValue(
@@ -282,8 +298,7 @@ class BeanDeserializer extends Deserializer[Any] {
     node: JsonNode,
     property: AnnotationProperty,
     context: DeserializationContext,
-    oldValue: Any,
-    propertyType: Class[?]
+    oldValue: Any
   ): Unit = {
     if (node == null) {
       return
@@ -303,25 +318,41 @@ class BeanDeserializer extends Deserializer[Any] {
 
     val jsonObject = node match {
       case value: JsonObject => value
-      case _ => throw new IllegalArgumentException(s"Relationship '${property.name}' must be an object or null")
+      case _                 => context.reject("This field expects an object or null.", property.name)
     }
-    val jsonId = jsonObject.value.get("id")
-    val target =
-      if (jsonId != null) {
-        EntityReferences.load(jsonId, propertyType, context)
-      } else if (oldValue != null) {
-        oldValue
-      } else {
-        propertyType.getConstructor().newInstance()
-      }
-
-    val value = deserializeValue(property.propertyType, property.name, target, context, node)
+    val (target, targetType) = nestedTarget(jsonObject, property, context, oldValue, references = true)
+    val value = deserializeValue(targetType, property.name, target, context, node)
     context.checkForViolations(
       instance.getClass,
       property.name,
       value,
       () => setPropertyAndSynchronize(instance, property, oldValue, value)
     )
+  }
+
+  /**
+   * The object a nested JSON object is merged into, with the class to read it as: for a reference the object its `id`
+   * loads, otherwise the current value if it has the requested subtype, otherwise a new instance.
+   */
+  private def nestedTarget(
+    json: JsonObject,
+    property: AnnotationProperty,
+    context: DeserializationContext,
+    oldValue: Any,
+    references: Boolean
+  ): (Any, ResolvedClass) = {
+    val declared = property.propertyType.raw
+    val actualType = Subtypes.resolve(json, declared, context, property.name)
+    val jsonId = if (references) json.value.get("id") else null
+    val target =
+      if (jsonId != null) EntityReferences.load(jsonId, actualType, context, property.name)
+      else if (oldValue != null && actualType.isInstance(oldValue)) oldValue
+      else Subtypes.instantiate(actualType, context, property.name)
+    val targetType =
+      if (actualType != declared) TypeResolver.resolve(actualType)
+      else if (Subtypes.isConcrete(declared)) property.propertyType
+      else TypeResolver.resolve(target.getClass)
+    (target, targetType)
   }
 
   private def setPropertyAndSynchronize(owner: Any, property: AnnotationProperty, previous: Any, value: Any): Unit = {

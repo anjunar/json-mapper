@@ -8,7 +8,7 @@ class StringDeserializer extends Deserializer[String] {
   override def deserialize(json: JsonNode, context: DeserializationContext): String =
     json match {
       case value: JsonString => value.value
-      case _                 => throw new IllegalArgumentException("json must be a string")
+      case _                 => context.reject("This field expects a string.")
     }
 
 }

@@ -1,123 +1,87 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.DeserializationContext
+import com.anjunar.json.mapper.{DeserializationContext, Subtypes}
 import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonNode, JsonObject}
 import com.anjunar.json.mapper.provider.EntityProvider
 import com.anjunar.scala.universe.TypeResolver
-import jakarta.json.bind.annotation.JsonbSubtype
-import com.anjunar.json.mapper.intermediate.model.JsonString
-import java.lang.{Object as LangObject}
-import java.lang.reflect.Modifier
 import java.util
 
+/**
+ * Builds the new contents of a collection. Object elements with an `id` are loaded, those without one are created;
+ * scalar elements merge into the element at the same position. The caller replaces the collection's contents.
+ */
 class ArrayDeserializer extends Deserializer[util.Collection[?]] {
 
   override def deserialize(json: JsonNode, context: DeserializationContext): util.Collection[?] =
     json match {
       case array: JsonArray =>
+        // Insertion order is kept for sets as well, so the result is deterministic.
         val collection: util.Collection[Any] =
           if (classOf[util.Set[?]].isAssignableFrom(context.resolvedClass.raw)) {
-            new util.HashSet[Any]()
+            new util.LinkedHashSet[Any]()
           } else {
             new util.ArrayList[Any]()
           }
 
         val elementResolvedClass =
           context.resolvedClass.typeArguments.headOption.getOrElse(TypeResolver.resolve(classOf[Object]))
+        val declaredType = elementResolvedClass.raw
+        val existing = context.instance match {
+          case value: util.Collection[?] => value
+          case _                         => null
+        }
+
         var index = 0
         val iterator = array.value.iterator()
         while (iterator.hasNext) {
           val elementNode = iterator.next()
-          elementNode match {
-            case node: JsonObject =>
-              val declaredType = elementResolvedClass.raw
-              val actualType = subtype(node, declaredType)
+          val elementContext = elementNode match {
+            case node: JsonObject if DeserializerRegistry.readsProperties(declaredType) =>
+              val actualType = Subtypes.resolve(node, declaredType, context, index)
               val idNode = node.value.get("id")
               val entity =
-                if (declaredType == classOf[Object]) {
-                  null
-                } else if (idNode == null) {
-                  actualType.getConstructor().newInstance()
-                } else {
-                  EntityReferences.load(idNode, actualType, context)
-                }
-
+                if (idNode == null) Subtypes.instantiate(actualType, context, index)
+                else EntityReferences.load(idNode, actualType, context, index)
               val actualResolvedClass =
                 if (actualType != declaredType) TypeResolver.resolve(actualType)
-                else if (entity == null || !Modifier.isAbstract(declaredType.getModifiers)) elementResolvedClass
+                else if (Subtypes.isConcrete(declaredType)) elementResolvedClass
                 else TypeResolver.resolve(entity.getClass)
-              val jsonContext = context.child(actualResolvedClass, entity, context.name, index)
-
-              val deserialized = DeserializerRegistry
-                .findDeserializer(actualResolvedClass.raw.asInstanceOf[Class[Any]], node)
-                .deserialize(node, jsonContext)
-
-              collection.add(deserialized)
+              context.child(actualResolvedClass, entity, context.name, index)
             case _ =>
               val elementInstance =
-                if (
-                  elementResolvedClass.raw == classOf[Object] ||
-                  elementResolvedClass.raw == classOf[LangObject] ||
-                  classOf[EntityProvider].isAssignableFrom(elementResolvedClass.raw)
-                ) {
-                  null
-                } else {
-                  val existingCollection =
-                    context.instance match {
-                      case value: util.Collection[?] => value.asInstanceOf[util.Collection[Any]]
-                      case _                         => null
-                    }
-                  if (existingCollection == null) {
-                    null
-                  } else {
-                    val existingIterator = existingCollection.iterator()
-                    var currentIndex = 0
-                    var currentValue: Any = null
-                    while (existingIterator.hasNext && currentIndex <= index) {
-                      currentValue = existingIterator.next()
-                      currentIndex += 1
-                    }
-                    if (currentIndex == index + 1) currentValue else null
-                  }
-                }
-
-              val jsonContext = context.child(elementResolvedClass, elementInstance, context.name, index)
-
-              val deserialized = DeserializerRegistry
-                .findDeserializer(elementResolvedClass.raw.asInstanceOf[Class[Any]], elementNode)
-                .deserialize(elementNode, jsonContext)
-
-              collection.add(deserialized)
+                if (declaredType == classOf[Object] || classOf[EntityProvider].isAssignableFrom(declaredType)) null
+                else ArrayDeserializer.at(existing, index)
+              context.child(elementResolvedClass, elementInstance, context.name, index)
           }
 
+          val deserialized = DeserializerRegistry
+            .findDeserializer(elementContext.resolvedClass.raw.asInstanceOf[Class[Any]], elementNode)
+            .deserialize(elementNode, elementContext)
+
+          collection.add(deserialized)
           index += 1
         }
 
         collection
       case _ =>
-        throw new IllegalStateException(s"not a json array: $json")
+        context.reject("This field expects an array.")
     }
 
-  private def subtype(node: JsonObject, declaredType: Class[?]): Class[?] = {
-    if (!declaredType.isInterface && !Modifier.isAbstract(declaredType.getModifiers))
-      return declaredType
-    val alias = node.value.get("@type") match {
-      case value: JsonString => value.value
-      case null              => return declaredType
-      case _                 => throw new IllegalArgumentException("Collection element type must be a string")
+}
+
+private object ArrayDeserializer {
+
+  private def at(collection: util.Collection[?], index: Int): Any =
+    if (collection == null || index >= collection.size()) {
+      null
+    } else {
+      val iterator = collection.iterator()
+      var current = 0
+      while (current < index) {
+        iterator.next()
+        current += 1
+      }
+      iterator.next()
     }
-    if (!alias.matches("[A-Za-z][A-Za-z0-9_]*"))
-      throw new IllegalArgumentException("Invalid collection element type")
-    val resolved =
-      try Class.forName(s"${declaredType.getPackageName}.$alias", false, declaredType.getClassLoader)
-      catch { case _: ClassNotFoundException => throw new IllegalArgumentException("Unknown collection element type") }
-    val annotation = resolved.getAnnotation(classOf[JsonbSubtype])
-    if (
-      !declaredType.isAssignableFrom(resolved) || annotation == null || annotation.alias() != alias ||
-      annotation.`type`() != resolved
-    )
-      throw new IllegalArgumentException("Collection element type is not allowed")
-    resolved
-  }
 
 }

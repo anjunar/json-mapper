@@ -39,8 +39,9 @@ class TemporalSpec extends AnyFunSuite with Matchers {
     write(instant) shouldBe "\"2026-10-20T10:11:12.123456789Z\""
   }
 
-  test("invalid Instant input retains the temporal deserializer's null result") {
-    readInstant("\"not-an-instant\"") shouldBe null
+  test("invalid Instant input is reported as an invalid value instead of becoming null") {
+    val failure = the[ErrorRequestException] thrownBy readInstant("\"not-an-instant\"")
+    failure.errors.get(0).message shouldBe "This field expects a date or time in ISO-8601 format."
   }
 
   test("local temporal serialization retains its existing format and precision") {

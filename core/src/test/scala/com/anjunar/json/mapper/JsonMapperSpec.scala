@@ -182,7 +182,7 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     val holder = new PolymorphicHolder
     val json = """{"fields":[{"@type":"ProfileDto","key":"summary"}]}"""
 
-    an[IllegalArgumentException] should be thrownBy JsonMapper.deserialize(
+    val failure = the[ErrorRequestException] thrownBy JsonMapper.deserialize(
       JsonParser.parse(json),
       holder,
       TypeResolver.resolve(classOf[PolymorphicHolder]),
@@ -191,6 +191,9 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
       noInject,
       emptyValidator
     )
+
+    failure.errors.get(0).path shouldBe util.Arrays.asList("fields", Integer.valueOf(0), "@type")
+    holder.fields.isEmpty shouldBe true
   }
 
   test("deserialize should apply a property converter before DTO handling") {

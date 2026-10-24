@@ -68,7 +68,9 @@ private[mapper] object BeanMetadata {
     val parent = context.parent
     if (parent == null) {
       context.graph
-    } else if (classOf[util.Collection[?]].isAssignableFrom(parent.resolvedClass.raw) || parent.resolvedClass.raw.isArray) {
+    } else if (
+      classOf[util.Collection[?]].isAssignableFrom(parent.resolvedClass.raw) || parent.resolvedClass.raw.isArray
+    ) {
       graphContainer(parent)
     } else if (!classOf[EntityProvider].isAssignableFrom(parent.resolvedClass.raw)) {
       context.graph

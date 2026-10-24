@@ -1,9 +1,8 @@
 package com.anjunar.json.mapper.serializers
 
-import com.anjunar.json.mapper.SerializationContext
+import com.anjunar.json.mapper.{SerializationContext, Subtypes}
 import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonNode}
 import com.anjunar.scala.universe.TypeResolver
-import jakarta.json.bind.annotation.JsonbSubtype
 import java.util
 
 class ArraySerializer extends Serializer[util.Collection[?]] {
@@ -22,7 +21,7 @@ class ArraySerializer extends Serializer[util.Collection[?]] {
           var current: Class[?] = any.getClass
           while (
             current != null && declaredType.raw.isAssignableFrom(current) &&
-            current.getDeclaredAnnotation(classOf[JsonbSubtype]) == null
+            !Subtypes.registered(current, declaredType.raw)
           )
             current = current.getSuperclass
           if (current != null && declaredType.raw.isAssignableFrom(current)) TypeResolver.resolve(current)

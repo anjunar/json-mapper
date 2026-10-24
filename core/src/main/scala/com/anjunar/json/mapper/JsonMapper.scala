@@ -72,27 +72,17 @@ object JsonMapper {
   ): Any = {
     val deserializer = DeserializerRegistry.findDeserializer(resolvedClass.raw.asInstanceOf[Class[Any]], jsonNode)
     val context = new DeserializationContext(resolvedClass, instance, graph, loader, validator, inject, null, null)
-    val deserialized = deserializer.deserialize(jsonNode, context)
-
-    val errorRequests = new util.ArrayList[ErrorRequest]()
-    val contexts = context.flatten().iterator()
-
-    while (contexts.hasNext) {
-      val current = contexts.next()
-      val violations = current.violations.iterator()
-      while (violations.hasNext) {
-        val violation = violations.next()
-        val path = new util.ArrayList[Any](current.pathWithIndexes())
-        path.add(violation.getPropertyPath.toString)
-        errorRequests.add(new ErrorRequest(path, violation.getMessage))
+    val deserialized =
+      try {
+        deserializer.deserialize(jsonNode, context)
+      } catch {
+        case invalid: InvalidValue =>
+          context.run.reject(invalid.error)
+          null
       }
-    }
-
-    if (errorRequests.isEmpty) {
-      deserialized
-    } else {
-      throw new ErrorRequestException(errorRequests)
-    }
+    // Writes happen only now, and only if no field of the whole document was invalid.
+    context.run.complete()
+    deserialized
   }
 
   def serialize(

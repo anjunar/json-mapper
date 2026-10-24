@@ -75,7 +75,8 @@ class DecimalSpec extends AnyFunSuite with Matchers {
   }
 
   test("a string that is no decimal is rejected") {
-    an[IllegalArgumentException] should be thrownBy deserialize("""{"amount": "twelve"}""")
+    val failure = the[ErrorRequestException] thrownBy deserialize("""{"amount": "twelve"}""")
+    failure.errors.get(0).path shouldBe util.List.of("amount")
   }
 
   test("whole numbers are read as the declared type, also where the resolver reports a boxed class") {

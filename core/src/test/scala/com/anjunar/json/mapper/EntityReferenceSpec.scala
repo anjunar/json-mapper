@@ -123,9 +123,11 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     val missing = new EntityLoader {
       override def load(id: util.UUID, clazz: Class[?]): Any = null
     }
-    intercept[IllegalArgumentException] {
+    val failure = intercept[ErrorRequestException] {
       prepare(post, s"""{"author":{"id":"${util.UUID.randomUUID()}","name":"Unwanted"}}""", missing).applyChanges()
     }
+    assert(failure.errors.get(0).path == util.List.of("author"))
+    assert(failure.errors.get(0).message == "This reference could not be resolved.")
     assert(post.author eq previous)
     assert(previous.name == "Original")
   }
@@ -149,9 +151,10 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
   for (invalid <- Seq("null", "42", "\"\"", "\"not-a-uuid\"", "\"1-1-1-1-1\"", "{}")) {
     test(s"an invalid reference ID $invalid is rejected without calling the loader") {
       val post = new ReferencePost()
-      intercept[IllegalArgumentException] {
+      val failure = intercept[ErrorRequestException] {
         prepare(post, s"""{"author":{"id":$invalid}}""").applyChanges()
       }
+      assert(failure.errors.get(0).path == util.List.of("author", "id"))
       assert(post.author == null)
     }
   }
@@ -161,7 +164,8 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     val loader = new EntityLoader {
       override def load(id: util.UUID, clazz: Class[?]): Any = "wrong type"
     }
-    intercept[IllegalArgumentException] {
+    // A loader that breaks its contract is a fault of the application, not of the request.
+    intercept[IllegalStateException] {
       prepare(post, s"""{"author":{"id":"${util.UUID.randomUUID()}"}}""", loader).applyChanges()
     }
     assert(post.author == null)
@@ -172,7 +176,7 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     val loader = new EntityLoader {
       override def load(id: util.UUID, clazz: Class[?]): Any = new ReferenceAuthor()
     }
-    intercept[IllegalArgumentException] {
+    intercept[IllegalStateException] {
       prepare(post, s"""{"author":{"id":"${util.UUID.randomUUID()}"}}""", loader).applyChanges()
     }
     assert(post.author == null)
@@ -417,9 +421,10 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
     val previous = new ReferenceAuthor()
     post.author = previous
     for (invalid <- Seq("[]", "42", "true", "\"value\"")) {
-      intercept[IllegalArgumentException] {
+      val failure = intercept[ErrorRequestException] {
         prepare(post, s"""{"author":$invalid}""").applyChanges()
       }
+      assert(failure.errors.get(0).path == util.List.of("author"))
       assert(post.author eq previous)
     }
   }

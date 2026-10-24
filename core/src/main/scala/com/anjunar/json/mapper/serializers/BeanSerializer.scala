@@ -1,12 +1,11 @@
 package com.anjunar.json.mapper.serializers
 
-import com.anjunar.json.mapper.{BeanMetadata, SerializationContext}
+import com.anjunar.json.mapper.{BeanMetadata, SerializationContext, Subtypes}
 import com.anjunar.json.mapper.annotations.UseConverter
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonObject, JsonString}
 import com.anjunar.json.mapper.schema.BeanSchema
 import com.anjunar.scala.universe.TypeResolver
 import com.anjunar.scala.universe.introspector.AnnotationProperty
-import jakarta.json.bind.annotation.JsonbSubtype
 import java.lang.{Boolean as JavaBoolean}
 import java.util
 
@@ -37,14 +36,11 @@ class BeanSerializer extends Serializer[Any] {
         }
       }
     }
-    if (!json.value.isEmpty && context.includes("@type")) {
-      val subtype = input.getClass.getAnnotation(classOf[JsonbSubtype])
-      val typeProperty = if (subtype != null) {
-        new JsonString(subtype.alias())
-      } else {
-        new JsonString(input.getClass.getSimpleName.replace("$HibernateProxy", ""))
+    if (!json.value.isEmpty) {
+      val (typeKey, alias) = Subtypes.alias(input.getClass)
+      if (context.includes(typeKey)) {
+        json.value.putIfAbsent(typeKey, new JsonString(alias))
       }
-      json.value.putIfAbsent("@type", typeProperty)
     }
     json
   }

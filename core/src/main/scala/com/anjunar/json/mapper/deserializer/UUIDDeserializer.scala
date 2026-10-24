@@ -9,8 +9,10 @@ class UUIDDeserializer extends Deserializer[util.UUID] {
 
   override def deserialize(json: JsonNode, context: DeserializationContext): util.UUID =
     json match {
-      case value: JsonString => util.UUID.fromString(value.value)
-      case _                 => throw new IllegalArgumentException("json must be a string")
+      case value: JsonString =>
+        try util.UUID.fromString(value.value)
+        catch { case _: IllegalArgumentException => context.reject("This field expects a UUID.") }
+      case _ => context.reject("This field expects a UUID.")
     }
 
 }

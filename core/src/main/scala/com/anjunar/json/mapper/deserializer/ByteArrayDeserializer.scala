@@ -9,8 +9,10 @@ class ByteArrayDeserializer extends Deserializer[Array[Byte]] {
 
   override def deserialize(json: JsonNode, context: DeserializationContext): Array[Byte] =
     json match {
-      case value: JsonString => util.Base64.getDecoder.decode(value.value)
-      case _                 => throw new IllegalArgumentException("json must be a string")
+      case value: JsonString =>
+        try util.Base64.getDecoder.decode(value.value)
+        catch { case _: IllegalArgumentException => context.reject("This field expects base64 data.") }
+      case _ => context.reject("This field expects base64 data.")
     }
 
 }

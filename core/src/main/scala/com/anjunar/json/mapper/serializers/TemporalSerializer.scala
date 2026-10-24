@@ -22,8 +22,9 @@ class TemporalSerializer extends Serializer[Temporal] {
         new JsonString(value.truncatedTo(ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
       case value: LocalTime =>
         new JsonString(value.truncatedTo(ChronoUnit.MINUTES).format(DateTimeFormatter.ISO_TIME))
-      case _ =>
-        throw new IllegalArgumentException(s"Unsupported type: ${context.resolvedClass}")
+      // Every other java.time type, such as OffsetDateTime or YearMonth, prints its ISO-8601 form and parses it back.
+      case other =>
+        new JsonString(other.toString)
     }
 
 }

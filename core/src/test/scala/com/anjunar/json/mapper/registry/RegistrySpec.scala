@@ -29,11 +29,10 @@ class RegistrySpec extends AnyFunSuite with Matchers {
     DeserializerRegistry.findDeserializer(classOf[util.List[?]], new JsonArray()) shouldBe a[ArrayDeserializer]
   }
 
-  test("deserializer registry should reject unsupported string target types") {
-    val exception =
-      the[IllegalArgumentException] thrownBy
-        DeserializerRegistry.findDeserializer(classOf[SampleBean], new JsonString("value"))
-
-    exception.getMessage should include("Unsupported type")
+  test("the deserializer registry chooses by declared type, so a mismatching node becomes a field error") {
+    DeserializerRegistry.findDeserializer(classOf[SampleBean], new JsonString("value")) shouldBe a[BeanDeserializer]
+    DeserializerRegistry.findDeserializer(classOf[String], new JsonNumber("5")) shouldBe a[StringDeserializer]
+    DeserializerRegistry.findDeserializer(classOf[Object], new JsonNumber("5")) shouldBe a[NumberDeserializer]
+    DeserializerRegistry.findDeserializer(classOf[Object], new JsonObject()) shouldBe a[MapDeserializer]
   }
 }

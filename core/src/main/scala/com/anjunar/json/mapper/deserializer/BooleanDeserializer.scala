@@ -8,7 +8,7 @@ class BooleanDeserializer extends Deserializer[Boolean] {
   override def deserialize(json: JsonNode, context: DeserializationContext): Boolean =
     json match {
       case value: JsonBoolean => value.value
-      case _                  => throw new IllegalArgumentException("json must be a boolean")
+      case _                  => context.reject("This field expects true or false.")
     }
 
 }

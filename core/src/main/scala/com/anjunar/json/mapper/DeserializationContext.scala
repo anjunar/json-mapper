@@ -2,7 +2,7 @@ package com.anjunar.json.mapper
 
 import com.anjunar.scala.universe.ResolvedClass
 import jakarta.persistence.EntityGraph
-import jakarta.validation.{ConstraintViolation, Validator}
+import jakarta.validation.Validator
 import java.util
 
 /** The position of one JSON value while it is merged into the Java object graph. */
@@ -20,14 +20,6 @@ class DeserializationContext(
 
   private[mapper] val run: MappingRun = if (parent == null) new MappingRun(inject) else parent.run
 
-  if (parent != null) {
-    parent.children.add(this)
-  }
-
-  val children: util.List[DeserializationContext] = new util.ArrayList[DeserializationContext]()
-
-  val violations: util.Set[ConstraintViolation[?]] = new util.HashSet[ConstraintViolation[?]]()
-
   /** A context for a value below this one. */
   def child(
     resolvedClass: ResolvedClass,
@@ -37,25 +29,28 @@ class DeserializationContext(
   ): DeserializationContext =
     new DeserializationContext(resolvedClass, instance, graph, loader, validator, inject, this, name, index)
 
-  def flatten(): util.List[DeserializationContext] = {
-    val result = new util.ArrayList[DeserializationContext]()
-    result.add(this)
-
-    val iterator = children.iterator()
-    while (iterator.hasNext) {
-      result.addAll(iterator.next().flatten())
-    }
-
-    result
-  }
-
+  /**
+   * Validates a value against the constraints of a property. Without violations the write runs once the whole
+   * document is known to be valid; with violations they are reported at this context's path and nothing is written.
+   */
   def checkForViolations(clazz: Class[?], name: String, value: Any, callback: () => Unit): Unit = {
     val checked = validator.validateValue(clazz, name, value)
-    if (!checked.isEmpty) {
-      violations.addAll(checked)
+    if (checked.isEmpty) {
+      run.defer(callback)
     } else {
-      callback()
+      checked.forEach { violation =>
+        val path = new util.ArrayList[Any](pathWithIndexes())
+        path.add(violation.getPropertyPath.toString)
+        run.reject(new ErrorRequest(path, violation.getMessage))
+      }
     }
+  }
+
+  /** Rejects the value at this context, or at a position below it, as invalid input. */
+  private[mapper] def reject(message: String, below: Any*): Nothing = {
+    val path = new util.ArrayList[Any](pathWithIndexes())
+    below.foreach(path.add)
+    throw new InvalidValue(path, message)
   }
 
 }

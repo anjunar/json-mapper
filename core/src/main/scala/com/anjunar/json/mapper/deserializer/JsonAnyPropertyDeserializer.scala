@@ -1,6 +1,6 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.{BeanMetadata, DeserializationContext}
+import com.anjunar.json.mapper.{BeanMetadata, DeserializationContext, Subtypes}
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonObject}
 import com.anjunar.scala.universe.TypeResolver
 import java.util
@@ -27,11 +27,13 @@ class JsonAnyPropertyDeserializer extends Deserializer[util.Map[String, ?]] {
           }
         }
 
+        // The alias that selected the bean's subtype is no open property.
+        val typeKey = Subtypes.key(beanContext.resolvedClass.raw)
         val collection = new util.LinkedHashMap[String, Any]()
         val iterator = jsonObject.value.entrySet().iterator()
         while (iterator.hasNext) {
           val entry = iterator.next()
-          if (entry.getKey != "@type" && !excludedNames.contains(entry.getKey)) {
+          if (entry.getKey != typeKey && !excludedNames.contains(entry.getKey)) {
             val jsonContext = context.child(TypeResolver.resolve(classOf[Object]), null, entry.getKey)
 
             val deserialized = DeserializerRegistry

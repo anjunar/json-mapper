@@ -8,6 +8,7 @@ import jakarta.persistence.AttributeNode
 /**
  * State of one serialize or deserialize call. Rules and graph lookups are cached here rather than in the shared
  * (de)serializer instances: they belong to the caller's graph and injector, and concurrent calls must not share them.
+ * Deserialization also collects its errors here and defers its writes until the whole document has been checked.
  */
 private[mapper] final class MappingRun(inject: [T] => Class[T] => T) {
 
@@ -16,6 +17,24 @@ private[mapper] final class MappingRun(inject: [T] => Class[T] => T) {
   private val attributeNames = new util.IdentityHashMap[AnyRef, util.Set[String]]()
 
   private val subgraphs = new util.IdentityHashMap[AnyRef, util.Map[String, Subgraph[?]]]()
+
+  private val errors = new util.ArrayList[ErrorRequest]()
+
+  private val writes = new util.ArrayList[() => Unit]()
+
+  def reject(error: ErrorRequest): Unit = errors.add(error)
+
+  /** A write that happens only if the whole document turns out valid. */
+  def defer(write: () => Unit): Unit = writes.add(write)
+
+  /** Applies all deferred writes in order, or none and reports every error. */
+  def complete(): Unit =
+    if (errors.isEmpty) {
+      writes.forEach(write => write())
+      writes.clear()
+    } else {
+      throw new ErrorRequestException(new util.ArrayList[ErrorRequest](errors))
+    }
 
   /** The rule instance for a property. A property without a rule behaves like [[DefaultRule]]. */
   def rule(ruleClass: Class[? <: VisibilityRule[?]]): VisibilityRule[Any] =
@@ -57,7 +76,7 @@ private object MappingRun {
 
   private def attributeNodes(container: AnyRef): util.List[? <: AttributeNode[?]] =
     container match {
-      case graph: EntityGraph[?]  => graph.getAttributeNodes
+      case graph: EntityGraph[?] => graph.getAttributeNodes
       case subgraph: Subgraph[?] => subgraph.getAttributeNodes
       case _                     => util.Collections.emptyList()
     }

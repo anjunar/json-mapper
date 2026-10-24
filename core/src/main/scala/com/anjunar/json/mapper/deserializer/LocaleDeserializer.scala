@@ -10,7 +10,7 @@ class LocaleDeserializer extends Deserializer[util.Locale] {
   override def deserialize(json: JsonNode, context: DeserializationContext): util.Locale =
     json match {
       case value: JsonString => util.Locale.forLanguageTag(value.value)
-      case _                 => throw new IllegalArgumentException("json must be a string")
+      case _                 => context.reject("This field expects a language tag.")
     }
 
 }
