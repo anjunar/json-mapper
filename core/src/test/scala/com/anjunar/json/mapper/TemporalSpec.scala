@@ -5,6 +5,7 @@ import com.anjunar.scala.universe.TypeResolver
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
+import java.time.{Duration, OffsetDateTime, Period, Year, YearMonth, ZoneId, ZoneOffset, ZonedDateTime}
 import java.time.{Instant, LocalDate, LocalDateTime, LocalTime}
 
 class TemporalSpec extends AnyFunSuite with Matchers {
@@ -48,5 +49,30 @@ class TemporalSpec extends AnyFunSuite with Matchers {
     write(LocalDate.of(2026, 10, 20)) shouldBe "\"2026-10-20\""
     write(LocalDateTime.of(2026, 10, 20, 10, 11, 12)) shouldBe "\"2026-10-20T10:11:00\""
     write(LocalTime.of(10, 11, 12)) shouldBe "\"10:11:00\""
+  }
+
+  private def read[T](json: String, clazz: Class[T]): T =
+    JsonMapper.deserialize(JsonParser.parse(json), null, TypeResolver.resolve(clazz), null, null, noInject, null)
+      .asInstanceOf[T]
+
+  test("every other java.time type is written in ISO-8601 form and read back") {
+    val values = Seq(
+      OffsetDateTime.of(2026, 10, 20, 10, 11, 12, 0, ZoneOffset.ofHours(2)),
+      ZonedDateTime.of(2026, 10, 20, 10, 11, 12, 0, ZoneId.of("Europe/Berlin")),
+      YearMonth.of(2026, 10),
+      Year.of(2026)
+    )
+    values.foreach(value => read(write(value), value.getClass) shouldBe value)
+  }
+
+  test("periods and durations are read as the declared type") {
+    read("\"P1Y2M\"", classOf[Period]) shouldBe Period.of(1, 2, 0)
+    read("\"PT90M\"", classOf[Duration]) shouldBe Duration.ofMinutes(90)
+    write(Period.ofDays(3)) shouldBe "\"P3D\""
+  }
+
+  test("an invalid duration is reported as an invalid value") {
+    val failure = the[ErrorRequestException] thrownBy read("\"soon\"", classOf[Duration])
+    failure.errors.get(0).message shouldBe "This field expects an ISO-8601 duration."
   }
 }

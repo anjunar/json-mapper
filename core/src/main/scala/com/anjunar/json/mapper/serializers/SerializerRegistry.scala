@@ -22,10 +22,13 @@ object SerializerRegistry {
   private val temporalSerializer = new TemporalSerializer
   private val beanSerializer = new BeanSerializer
   private val jsonAnyPropertySerializer = new JsonAnyPropertySerializer
+  private val jsonPatchSerializer = new JsonPatchSerializer
+  private val nullSerializer = new NullSerializer
 
   def find[T](clazz: Class[T], instance: Any): Serializer[T] =
     (instance match {
-      case _: JsonPatch[?]       => new JsonPatchSerializer
+      case null                  => nullSerializer
+      case _: JsonPatch[?]       => jsonPatchSerializer
       case _: String             => stringSerializer
       case _: util.Collection[?] => arraySerializer
       case _: Boolean            => booleanSerializer

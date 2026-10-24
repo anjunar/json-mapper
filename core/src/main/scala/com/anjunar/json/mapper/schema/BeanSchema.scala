@@ -44,6 +44,7 @@ abstract class BeanSchema[T] {
   }
 
   protected def register[P <: Property[T, ?]](property: P): P = {
+    property.classLoader = getClass.getClassLoader
     properties.put(property.name, property.asInstanceOf[Property[T, Any]])
     property
   }

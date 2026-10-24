@@ -8,7 +8,8 @@ import java.util
 class MapSerializer extends Serializer[util.Map[String, ?]] {
 
   override def serialize(input: util.Map[String, ?], context: SerializationContext): JsonNode = {
-    val nodes = new util.HashMap[String, JsonNode]()
+    // Entries keep the order of the source map, so output is deterministic for ordered maps.
+    val nodes = new util.LinkedHashMap[String, JsonNode]()
     val jsonObject = new JsonObject(nodes)
     val typeArguments = context.resolvedClass.typeArguments
 
@@ -19,6 +20,7 @@ class MapSerializer extends Serializer[util.Map[String, ?]] {
         val value = entry.getValue
         val valueResolvedClass =
           if (typeArguments.length > 1) typeArguments(1)
+          else if (value == null) TypeResolver.resolve(classOf[Object])
           else TypeResolver.resolve(value.getClass)
 
         val serializer = SerializerRegistry

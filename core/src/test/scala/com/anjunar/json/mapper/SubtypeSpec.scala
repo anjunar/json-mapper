@@ -49,7 +49,8 @@ class SubtypeSpec extends AnyFunSuite with Matchers {
   }
 
   test("collections use the same @JsonbTypeInfo registration") {
-    val drawing = deserialize(new DrawingDto, """{"shapes":[{"kind":"square","side":2},{"kind":"circle","radius":1}]}""")
+    val drawing =
+      deserialize(new DrawingDto, """{"shapes":[{"kind":"square","side":2},{"kind":"circle","radius":1}]}""")
     drawing.shapes.get(0) shouldBe a[SquareDto]
     drawing.shapes.get(1) shouldBe a[CircleDto]
   }
