@@ -1,55 +1,67 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.annotations.JsonbAnyProperty
-import com.anjunar.json.mapper.JsonPatch
-import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonBoolean, JsonNode, JsonNumber, JsonObject, JsonString}
+import com.anjunar.json.mapper.{JsonPatch, JsonProperties}
+import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonBoolean, JsonNode, JsonNull, JsonNumber, JsonObject, JsonString}
 import com.anjunar.scala.universe.introspector.AnnotationProperty
 
 import java.time.temporal.{Temporal, TemporalAmount}
 import java.util
-import com.anjunar.json.mapper.intermediate.model.JsonNull
 import java.lang.{Object as LangObject}
 
 object DeserializerRegistry {
 
+  private val arrayDeserializer = new ArrayDeserializer
+  private val beanDeserializer = new BeanDeserializer
+  private val booleanDeserializer = new BooleanDeserializer
+  private val byteArrayDeserializer = new ByteArrayDeserializer
+  private val enumDeserializer = new EnumDeserializer
   private val jsonAnyPropertyDeserializer = new JsonAnyPropertyDeserializer
+  private val jsonPatchDeserializer = new JsonPatchDeserializer
+  private val localeDeserializer = new LocaleDeserializer
+  private val mapDeserializer = new MapDeserializer
   private val nullDeserializer = new NullDeserializer
+  private val numberDeserializer = new NumberDeserializer
+  private val stringDeserializer = new StringDeserializer
+  private val temporalAmountDeserializer = new TemporalAmountDeserializer
+  private val temporalDeserializer = new TemporalDeserializer
+  private val uuidDeserializer = new UUIDDeserializer
 
+  /** The deserializer follows the JSON node first and the declared type second, so that `null` always applies. */
   def findDeserializer[T](clazz: Class[T], node: JsonNode): Deserializer[T] =
-    (if (clazz == classOf[JsonPatch[?]] && !node.isInstanceOf[JsonNull]) new JsonPatchDeserializer
+    (if (clazz == classOf[JsonPatch[?]] && !node.isInstanceOf[JsonNull]) jsonPatchDeserializer
      else node match {
-       case _: JsonNumber  => new NumberDeserializer
-       case _: JsonBoolean => new BooleanDeserializer
-       case _: JsonArray   => new ArrayDeserializer
+       case _: JsonNumber  => numberDeserializer
+       case _: JsonBoolean => booleanDeserializer
+       case _: JsonArray   => arrayDeserializer
        case _: JsonObject  =>
          if (
            clazz == classOf[Object] ||
            clazz == classOf[LangObject] ||
            classOf[util.Map[?, ?]].isAssignableFrom(clazz)
          ) {
-           new MapDeserializer
+           mapDeserializer
          } else {
-           new BeanDeserializer
+           beanDeserializer
          }
        case _: JsonString =>
          if (clazz == classOf[Array[Byte]]) {
-           new ByteArrayDeserializer
+           byteArrayDeserializer
          } else if (classOf[Enum[?]].isAssignableFrom(clazz)) {
-           new EnumDeserializer
+           enumDeserializer
          } else if (classOf[util.Locale].isAssignableFrom(clazz)) {
-           new LocaleDeserializer
+           localeDeserializer
          } else if (classOf[String].isAssignableFrom(clazz)) {
-           new StringDeserializer
+           stringDeserializer
          } else if (classOf[TemporalAmount].isAssignableFrom(clazz)) {
-           new TemporalAmountDeserializer
+           temporalAmountDeserializer
          } else if (classOf[Temporal].isAssignableFrom(clazz)) {
-           new TemporalDeserializer
+           temporalDeserializer
          } else if (classOf[util.UUID].isAssignableFrom(clazz)) {
-           new UUIDDeserializer
+           uuidDeserializer
          } else if (NumberDeserializer.decimal(clazz)) {
-           new NumberDeserializer
+           numberDeserializer
          } else if (clazz == classOf[Object] || clazz == classOf[LangObject]) {
-           new StringDeserializer
+           stringDeserializer
          } else {
            throw new IllegalArgumentException(s"Unsupported type: $clazz")
          }
@@ -60,7 +72,7 @@ object DeserializerRegistry {
      }).asInstanceOf[Deserializer[T]]
 
   def findPropertyDeserializer(property: AnnotationProperty, node: JsonNode): Deserializer[Any] =
-    if (property.findAnnotation(classOf[JsonbAnyProperty]) != null) {
+    if (JsonProperties.isAnyProperty(property)) {
       jsonAnyPropertyDeserializer.asInstanceOf[Deserializer[Any]]
     } else {
       findDeserializer(property.propertyType.raw.asInstanceOf[Class[Any]], node)

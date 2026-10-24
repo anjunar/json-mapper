@@ -101,7 +101,9 @@ final class Projection[E] private (
         val nested = Projection.embeddable(projection.json)
         properties.put(alias(property), properties.get(alias(property)).copy(items = nested))
       }
-      refinements.foreach((property, change) => properties.put(alias(property), change(properties.get(alias(property)))))
+      refinements.foreach((property, change) =>
+        properties.put(alias(property), change(properties.get(alias(property))))
+      )
       base.copy(properties = properties)
     }
   }
@@ -132,7 +134,10 @@ final class Projection[E] private (
     require(field != null && field.`type` == "array", s"Envelope has no collection property: $collection")
     val properties = new util.LinkedHashMap[String, JsonSchema](model.properties)
     properties.put(collection, field.copy(items = Projection.embeddable(json)))
-    JsonProjection(model.copy(properties = properties, required = new util.ArrayList(model.properties.keySet())), graphName)
+    JsonProjection(
+      model.copy(properties = properties, required = new util.ArrayList(model.properties.keySet())),
+      graphName
+    )
   }
 }
 

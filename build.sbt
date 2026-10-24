@@ -4,7 +4,7 @@ ThisBuild / version := "1.1.8-SNAPSHOT"
 ThisBuild / organization := "com.anjunar"
 ThisBuild / organizationName := "Anjunar"
 ThisBuild / organizationHomepage := Some(url("https://github.com/anjunar"))
-ThisBuild / scalaVersion := "3.3.7"
+ThisBuild / scalaVersion := "3.3.8"
 ThisBuild / homepage := Some(url("https://github.com/anjunar/json-mapper"))
 ThisBuild / description :=
   "JSON mapping for Scala object graphs with in-place deserialization and structured domain binding."
@@ -44,6 +44,7 @@ lazy val root = (project in file("."))
     name := "json-mapper",
     moduleName := "json-mapper",
     libraryDependencies ++= Seq(
+      "com.anjunar" %% "scala-reflect" % "1.1.4",
       "com.anjunar" %% "scala-universe" % "1.0.4",
       "com.google.guava" % "guava" % "33.5.0-jre",
       "jakarta.json.bind" % "jakarta.json.bind-api" % "3.0.1",

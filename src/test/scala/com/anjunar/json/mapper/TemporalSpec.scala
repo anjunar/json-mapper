@@ -14,8 +14,15 @@ class TemporalSpec extends AnyFunSuite with Matchers {
     JsonMapper.serialize(value, TypeResolver.resolve(value.getClass), null, noInject)
 
   private def readInstant(json: String): Instant =
-    JsonMapper.deserialize(JsonParser.parse(json), null, TypeResolver.resolve(classOf[Instant]), null,
-      null, noInject, null).asInstanceOf[Instant]
+    JsonMapper.deserialize(
+      JsonParser.parse(json),
+      null,
+      TypeResolver.resolve(classOf[Instant]),
+      null,
+      null,
+      noInject,
+      null
+    ).asInstanceOf[Instant]
 
   test("Instant round trips as ISO-8601 UTC without losing nanoseconds") {
     for (text <- Seq("1970-01-01T00:00:00Z", "2026-10-20T10:11:12.123456789Z", "1969-12-31T23:59:59.999999999Z")) {

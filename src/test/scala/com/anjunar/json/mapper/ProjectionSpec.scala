@@ -29,7 +29,9 @@ class ProjectionSpec extends AnyFunSuite {
     assert(summary.json.properties.containsKey("@type"))
     intercept[IllegalArgumentException](schema.graph("ProjectedDraft.missing"))
     assert(
-      intercept[IllegalArgumentException](schema.graph("ProjectedDraft.unregistered")).getMessage.contains("unregistered")
+      intercept[IllegalArgumentException](
+        schema.graph("ProjectedDraft.unregistered")
+      ).getMessage.contains("unregistered")
     )
   }
 
@@ -96,7 +98,8 @@ class ProjectionSpec extends AnyFunSuite {
   Array(
     new NamedEntityGraph(
       name = "ProjectedDraft.summary",
-      attributeNodes = Array(new NamedAttributeNode("title"), new NamedAttributeNode("id"), new NamedAttributeNode("version"))
+      attributeNodes =
+        Array(new NamedAttributeNode("title"), new NamedAttributeNode("id"), new NamedAttributeNode("version"))
     ),
     new NamedEntityGraph(
       name = "ProjectedDraft.unregistered",

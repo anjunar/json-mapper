@@ -1,11 +1,8 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.JsonContext
+import com.anjunar.json.mapper.{JsonContext, JsonProperties}
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonObject}
 import com.anjunar.scala.universe.TypeResolver
-import com.anjunar.scala.universe.introspector.{AnnotationIntrospector, AnnotationProperty}
-import jakarta.json.bind.annotation.JsonbProperty
-import com.anjunar.json.mapper.annotations.JsonbAnyProperty
 import java.util
 
 class JsonAnyPropertyDeserializer extends Deserializer[util.Map[String, ?]] {
@@ -18,15 +15,13 @@ class JsonAnyPropertyDeserializer extends Deserializer[util.Map[String, ?]] {
           throw new IllegalStateException("@JsonbAnyProperty requires a parent bean context")
         }
 
-        val beanModel = AnnotationIntrospector.create(beanContext.resolvedClass, classOf[JsonbProperty])
+        // Every member the bean declares itself, plus its identity, stays out of the open map.
         val excludedNames = new util.HashSet[String]()
-        val propertyIterator = beanModel.properties.iterator
-        while (propertyIterator.hasNext) {
-          val property = propertyIterator.next()
-          if (property.name == "id") {
-            excludedNames.add("id")
-          } else if (!isJsonAnyProperty(property)) {
-            excludedNames.add(resolveJsonName(property))
+        excludedNames.add("id")
+        excludedNames.add("@type")
+        for (property <- JsonProperties.model(beanContext.resolvedClass).properties) {
+          if (!JsonProperties.isAnyProperty(property)) {
+            excludedNames.add(JsonProperties.jsonName(property))
           }
         }
 
@@ -34,7 +29,7 @@ class JsonAnyPropertyDeserializer extends Deserializer[util.Map[String, ?]] {
         val iterator = jsonObject.value.entrySet().iterator()
         while (iterator.hasNext) {
           val entry = iterator.next()
-          if (entry.getKey != "@type" && !excludedNames.contains(entry.getKey)) {
+          if (!excludedNames.contains(entry.getKey)) {
             val jsonContext = new JsonContext(
               TypeResolver.resolve(classOf[Object]),
               null,
@@ -58,17 +53,5 @@ class JsonAnyPropertyDeserializer extends Deserializer[util.Map[String, ?]] {
       case _ =>
         throw new IllegalStateException(s"JsonbAnyProperty must be deserialized from an object: $json")
     }
-
-  private def isJsonAnyProperty(property: AnnotationProperty): Boolean =
-    property.findAnnotation(classOf[JsonbAnyProperty]) != null
-
-  private def resolveJsonName(property: AnnotationProperty): String = {
-    val jsonbProperty = property.findAnnotation(classOf[JsonbProperty])
-    if (jsonbProperty != null && jsonbProperty.value().nonEmpty) {
-      jsonbProperty.value()
-    } else {
-      property.name
-    }
-  }
 
 }

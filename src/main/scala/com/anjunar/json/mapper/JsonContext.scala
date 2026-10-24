@@ -1,11 +1,11 @@
 package com.anjunar.json.mapper
 
-import com.anjunar.json.mapper.provider.DTO
 import com.anjunar.scala.universe.ResolvedClass
 import jakarta.persistence.EntityGraph
 import jakarta.validation.{ConstraintViolation, Validator}
 import java.util
 
+/** The deserialization context: the target instance and type, the callbacks of the call, and the position. */
 class JsonContext(
   val resolvedClass: ResolvedClass,
   val instance: Any,
@@ -16,7 +16,7 @@ class JsonContext(
   val parent: JsonContext,
   val name: String,
   val index: Int = -1
-) {
+) extends MappingContext {
 
   if (parent != null) {
     parent.children.add(this)
@@ -47,22 +47,7 @@ class JsonContext(
     }
   }
 
-  def path(): util.List[String] = {
-    val parentPath = new util.ArrayList[String]()
-
-    var cursor: JsonContext = this
-
-    while (cursor != null) {
-      if (cursor.name != null) {
-        parentPath.add(cursor.name)
-      }
-      cursor = cursor.parent
-    }
-
-    util.Collections.reverse(parentPath)
-    parentPath
-  }
-
+  /** The path to this position as a client sees it: property names, and the index of a collection element. */
   def pathWithIndexes(): util.List[Any] = {
     val parentPath = new util.ArrayList[Any]()
 

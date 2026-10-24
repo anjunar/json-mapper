@@ -3,8 +3,8 @@ package com.anjunar.json.mapper
 import com.anjunar.scala.universe.ResolvedClass
 import com.anjunar.json.mapper.schema.JsonSchema
 import jakarta.persistence.EntityGraph
-import java.util
 
+/** The serialization context: the value's type, the graph and projection narrowing the output, and the position. */
 class JavaContext(
   val resolvedClass: ResolvedClass,
   val graph: EntityGraph[?],
@@ -12,7 +12,7 @@ class JavaContext(
   val parent: JavaContext,
   val name: String,
   projection: JsonSchema = null
-) {
+) extends MappingContext {
 
   private val rootProjection: JsonSchema = if (parent == null) projection else parent.rootProjection
   val schema: JsonSchema = if (projection == null) null else JsonSchema.resolve(projection, rootProjection)
@@ -30,18 +30,5 @@ class JavaContext(
       case value: JsonSchema => value
       case _                 => null
     }
-
-  def path(): util.List[String] = {
-    val parentPath = new util.ArrayList[String]()
-
-    var cursor: JavaContext = this
-
-    while (cursor != null) {
-      cursor = cursor.parent
-    }
-
-    util.Collections.reverse(parentPath)
-    parentPath
-  }
 
 }

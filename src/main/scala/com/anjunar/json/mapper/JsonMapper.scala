@@ -5,14 +5,14 @@ import com.anjunar.json.mapper.intermediate.JsonGenerator
 import com.anjunar.json.mapper.intermediate.model.JsonNode
 import com.anjunar.json.mapper.schema.{EntitySchema, JsonSchema, JsonSchemaDerivation}
 import com.anjunar.json.mapper.schema.property.Property
-import scala.jdk.CollectionConverters.*
-import com.anjunar.scala.universe.introspector.AnnotationProperty
-import java.lang.reflect.Type
-import com.anjunar.json.mapper.serializers.{Serializer, SerializerRegistry}
+import com.anjunar.json.mapper.serializers.SerializerRegistry
 import com.anjunar.scala.universe.ResolvedClass
+import com.anjunar.scala.universe.introspector.AnnotationProperty
 import jakarta.persistence.EntityGraph
 import jakarta.validation.Validator
+import java.lang.reflect.Type
 import java.util
+import scala.jdk.CollectionConverters.*
 
 object JsonMapper {
 

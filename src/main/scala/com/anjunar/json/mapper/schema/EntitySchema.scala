@@ -2,14 +2,12 @@ package com.anjunar.json.mapper.schema
 
 import com.anjunar.json.mapper.schema.property.{ListProperty, Property, SetProperty, SingularProperty}
 import com.anjunar.scala.universe.TypeResolver
-import reflect.{ClassDescriptor, ParameterizedTypeDescriptor, TypeDescriptor}
 import reflect.macros.PropertySupport
 import jakarta.persistence.EntityManager
 import jakarta.persistence.metamodel.{ListAttribute, SetAttribute, SingularAttribute}
 import org.hibernate.metamodel.model.domain.PersistentAttribute
 import org.hibernate.query.sqm.SqmPathSource
 
-import java.lang.reflect.{ParameterizedType, Type}
 import scala.collection.mutable
 
 abstract class EntitySchema[T](manager: => EntityManager = null) {
@@ -18,7 +16,12 @@ abstract class EntitySchema[T](manager: => EntityManager = null) {
 
   val properties: mutable.Map[String, Property[T, Any]] = new mutable.LinkedHashMap[String, Property[T, Any]]()
 
-  lazy val ownerEntityType: Class[T] = resolveOwnerEntityType(getClass).asInstanceOf[Class[T]]
+  /** The entity type `T`, read from the EntitySchema type argument of this schema's class hierarchy. */
+  lazy val ownerEntityType: Class[T] = TypeResolver.resolve(getClass).hierarchy
+    .find(_.raw == classOf[EntitySchema[?]])
+    .flatMap(_.typeArguments.headOption)
+    .map(_.raw.asInstanceOf[Class[T]])
+    .getOrElse(throw new IllegalStateException(s"Unable to resolve entity type for schema ${getClass.getName}"))
 
   def findProperty[V](name: String): Property[T, V] = properties(name).asInstanceOf[Property[T, V]]
 
@@ -94,46 +97,6 @@ abstract class EntitySchema[T](manager: => EntityManager = null) {
     val value = new ListProperty[T, V](propertyWithAccessor.accessor, propertyWithAccessor.descriptor, rule, attribute)
     properties.put(propertyWithAccessor.descriptor.name, value.asInstanceOf[Property[T, Any]])
     value
-  }
-
-  private def extractRawType(typeDescriptor: TypeDescriptor): Class[?] = {
-    typeDescriptor match {
-      case cd: ClassDescriptor             => Class.forName(cd.typeName)
-      case pd: ParameterizedTypeDescriptor => Class.forName(pd.rawType.typeName)
-      case _                               => Class.forName(typeDescriptor.typeName)
-    }
-  }
-
-  private def resolveOwnerEntityType(schemaClass: Class[?]): Class[?] = {
-    @annotation.tailrec
-    def loop(current: Class[?]): Class[?] = {
-      if (current == null || current == classOf[Object]) {
-        throw new IllegalStateException(s"Unable to resolve entity type for schema ${schemaClass.getName}")
-      }
-
-      extractOwnerType(current.getGenericSuperclass) match {
-        case Some(value) => value
-        case None        => loop(current.getSuperclass)
-      }
-    }
-
-    loop(schemaClass)
-  }
-
-  private def extractOwnerType(candidate: Type): Option[Class[?]] = candidate match {
-    case parameterized: ParameterizedType =>
-      val rawType = TypeResolver.rawType(parameterized)
-
-      if (classOf[EntitySchema[?]].isAssignableFrom(rawType)) {
-        parameterized.getActualTypeArguments.headOption.map(TypeResolver.rawType)
-      } else {
-        extractOwnerType(rawType.getGenericSuperclass)
-      }
-
-    case clazz: Class[?] =>
-      Option(clazz.getGenericSuperclass).flatMap(extractOwnerType)
-
-    case _ => None
   }
 
 }

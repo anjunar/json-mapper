@@ -226,3 +226,16 @@ The local `1.1.8-SNAPSHOT` adds `JsonMapper.schema(entitySchema)` and a typed pr
 EntitySchema and its JPA property delegates defer EntityManager/metamodel resolution until a JPA attribute is used. Reading structural schema metadata therefore needs neither a request EntityManager nor a database query. Pass a by-name EntityManager expression through application schema base classes to retain this behavior. No caller-specific permissions or EntityManagers are stored in exported JSON schemas.
 
 Run `sbtn test` and `sbtn publishLocal` before consuming this snapshot. It is not a published stable release.
+
+## Structure of the snapshot
+
+Serialization and deserialization share one description of their position in the object graph, `MappingContext`,
+and one set of helpers on top of it: `EntityGraphs` decides what a JPA entity graph selects, `JsonProperties` reads
+the mapper's annotations (member name, open property, converter, EntitySchema of a class), and a `MappingRun` holds
+what one call computes once: indexed graph nodes and visibility rule instances. Both bean mappers consist of the
+rules themselves; nothing is kept between calls or shared between threads.
+
+`SchemaProvider` finds its schema through the type argument it is declared with, not through a class name
+convention, so a schema class may live anywhere. `Property.schema` is resolved on first use; declaring a schema no
+longer instantiates the schemas of the types it refers to. JSON objects keep the member order they were built in,
+maps included. Deserializers are stateless singletons, like the serializers.

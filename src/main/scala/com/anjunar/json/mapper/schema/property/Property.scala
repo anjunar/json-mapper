@@ -1,7 +1,7 @@
 package com.anjunar.json.mapper.schema.property
 
-import com.anjunar.json.mapper.schema.{EntitySchema, Helper, Link, SchemaProvider, VisibilityRule}
-import _root_.reflect.{ClassDescriptor, PropertyAccessor, PropertyDescriptor}
+import com.anjunar.json.mapper.schema.{EntitySchema, Link, SchemaProvider, VisibilityRule}
+import _root_.reflect.{ParameterizedTypeDescriptor, PropertyAccessor, PropertyDescriptor, TypeDescriptor}
 import com.anjunar.scala.universe.TypeResolver
 import jakarta.json.bind.annotation.JsonbProperty
 
@@ -30,25 +30,19 @@ class Property[T, V](
   @JsonbProperty("type")
   val typeName: String = propertyDescriptor.propertyType.simpleName
 
+  /**
+   * The EntitySchema of the property's type, when its companion object provides one. Resolved on first use, so that
+   * declaring a schema never instantiates the schemas of the types it refers to.
+   */
   @JsonbProperty
-  var schema: EntitySchema[?] =
-    val value =
-      try {
-        Class.forName(propertyDescriptor.propertyType.typeName)
-      } catch {
-        case _: Throwable => null
-      }
-
-    if (value == null) {
-      null
-    } else {
-      val companion = TypeResolver.companionInstance[SchemaProvider[?]](value)
-
-      if (companion == null) {
-        null
-      } else {
-        companion.schema
-      }
+  lazy val schema: EntitySchema[?] =
+    Property.rawClass(propertyDescriptor.propertyType) match {
+      case null          => null
+      case propertyClass =>
+        TypeResolver.companionInstance[AnyRef](propertyClass) match {
+          case provider: SchemaProvider[?] => provider.schema
+          case _                           => null
+        }
     }
 
   @JsonbProperty("$links")
@@ -56,5 +50,22 @@ class Property[T, V](
 
   def addLinks(value: Link*): Unit =
     value.filter(_ != null).foreach(link => links.add(link))
+
+}
+
+object Property {
+
+  /** The runtime class a compile-time type descriptor names, or null for primitives and other non-classes. */
+  private def rawClass(descriptor: TypeDescriptor): Class[?] = {
+    val className = descriptor match {
+      case parameterized: ParameterizedTypeDescriptor => parameterized.rawType.typeName
+      case other                                      => other.typeName
+    }
+    try {
+      Class.forName(className)
+    } catch {
+      case _: ClassNotFoundException => null
+    }
+  }
 
 }

@@ -8,7 +8,7 @@ import java.util
 class MapSerializer extends Serializer[util.Map[String, ?]] {
 
   override def serialize(input: util.Map[String, ?], context: JavaContext): JsonNode = {
-    val nodes = new util.HashMap[String, JsonNode]()
+    val nodes = new util.LinkedHashMap[String, JsonNode]()
     val jsonObject = new JsonObject(nodes)
     val typeArguments = context.resolvedClass.typeArguments
 

@@ -2,7 +2,6 @@ package com.anjunar.json.mapper
 
 import jakarta.json.bind.annotation.JsonbProperty
 import scala.annotation.meta.field
-import scala.beans.BeanProperty
 import java.util
 
 class ErrorRequest(
