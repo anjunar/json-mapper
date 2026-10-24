@@ -1,6 +1,6 @@
 import com.jsuereth.sbtpgp.PgpKeys._
 
-ThisBuild / version := "1.1.8-SNAPSHOT"
+ThisBuild / version := "1.2.0-SNAPSHOT"
 ThisBuild / organization := "com.anjunar"
 ThisBuild / organizationName := "Anjunar"
 ThisBuild / organizationHomepage := Some(url("https://github.com/anjunar"))
@@ -39,20 +39,43 @@ Global / gpgCommand := {
     .getOrElse("gpg")
 }
 
-lazy val root = (project in file("."))
+lazy val jakartaApis = Seq(
+  "jakarta.json.bind" % "jakarta.json.bind-api" % "3.0.1",
+  "jakarta.persistence" % "jakarta.persistence-api" % "3.2.0",
+  "jakarta.validation" % "jakarta.validation-api" % "3.1.1"
+)
+
+lazy val testDependencies = Seq(
+  "org.scalatest" %% "scalatest" % "3.2.20" % Test,
+  "org.hibernate.validator" % "hibernate-validator" % "9.1.4.Final" % Test
+)
+
+/** Mapping, rules and JSON Schema export. Needs only the Jakarta APIs, no persistence provider. */
+lazy val core = (project in file("core"))
+  .settings(
+    name := "json-mapper-core",
+    moduleName := "json-mapper-core",
+    libraryDependencies ++= Seq(
+      "com.anjunar" %% "scala-universe" % "1.0.4",
+      "tools.jackson.core" % "jackson-databind" % "3.1.1",
+      "tools.jackson.module" %% "jackson-module-scala" % "3.1.1"
+    ) ++ jakartaApis ++ testDependencies
+  )
+
+/** EntitySchema with JPA-backed properties. Keeps the published coordinates `json-mapper`. */
+lazy val jpa = (project in file("jpa"))
+  .dependsOn(core % "compile->compile;test->test")
   .settings(
     name := "json-mapper",
     moduleName := "json-mapper",
     libraryDependencies ++= Seq(
-      "com.anjunar" %% "scala-universe" % "1.0.4",
-      "com.google.guava" % "guava" % "33.5.0-jre",
-      "jakarta.json.bind" % "jakarta.json.bind-api" % "3.0.1",
-      "jakarta.persistence" % "jakarta.persistence-api" % "3.2.0",
-      "jakarta.validation" % "jakarta.validation-api" % "3.1.1",
-      "tools.jackson.core" % "jackson-databind" % "3.1.1",
-      "tools.jackson.module" %% "jackson-module-scala" % "3.1.1",
-      "org.hibernate.orm" % "hibernate-core" % "7.2.6.Final",
-      "org.scalatest" %% "scalatest" % "3.2.20" % Test,
-      "org.hibernate.validator" % "hibernate-validator" % "9.1.4.Final" % Test
-    )
+      "org.hibernate.orm" % "hibernate-core" % "7.2.6.Final"
+    ) ++ testDependencies
+  )
+
+lazy val root = (project in file("."))
+  .aggregate(core, jpa)
+  .settings(
+    name := "json-mapper-root",
+    publish / skip := true
   )
