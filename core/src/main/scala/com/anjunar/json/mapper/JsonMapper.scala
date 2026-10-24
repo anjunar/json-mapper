@@ -71,7 +71,7 @@ object JsonMapper {
     validator: Validator
   ): Any = {
     val deserializer = DeserializerRegistry.findDeserializer(resolvedClass.raw.asInstanceOf[Class[Any]], jsonNode)
-    val context = new JsonContext(resolvedClass, instance, graph, loader, validator, inject, null, null)
+    val context = new DeserializationContext(resolvedClass, instance, graph, loader, validator, inject, null, null)
     val deserialized = deserializer.deserialize(jsonNode, context)
 
     val errorRequests = new util.ArrayList[ErrorRequest]()
@@ -111,7 +111,8 @@ object JsonMapper {
     projection: JsonSchema
   ): String = {
     val serializer = SerializerRegistry.find(resolvedClass.raw.asInstanceOf[Class[Any]], instance)
-    val node = serializer.serialize(instance, new JavaContext(resolvedClass, graph, inject, null, null, projection))
+    val node =
+      serializer.serialize(instance, new SerializationContext(resolvedClass, graph, inject, null, null, projection))
     JsonGenerator.generate(node)
   }
 

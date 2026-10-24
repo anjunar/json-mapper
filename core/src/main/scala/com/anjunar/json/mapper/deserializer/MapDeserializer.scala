@@ -1,6 +1,6 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.JsonContext
+import com.anjunar.json.mapper.DeserializationContext
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonObject}
 import com.anjunar.scala.universe.TypeResolver
 import java.lang.{Object as LangObject}
@@ -8,7 +8,7 @@ import java.util
 
 class MapDeserializer extends Deserializer[util.Map[String, ?]] {
 
-  override def deserialize(json: JsonNode, context: JsonContext): util.Map[String, ?] =
+  override def deserialize(json: JsonNode, context: DeserializationContext): util.Map[String, ?] =
     json match {
       case jsonObject: JsonObject =>
         val collection = new util.LinkedHashMap[String, Any]()
@@ -33,16 +33,7 @@ class MapDeserializer extends Deserializer[util.Map[String, ?]] {
               elementResolvedClass.raw.getConstructor().newInstance()
             }
 
-          val jsonContext = new JsonContext(
-            elementResolvedClass,
-            entity,
-            context.graph,
-            context.loader,
-            context.validator,
-            context.inject,
-            context,
-            context.name
-          )
+          val jsonContext = context.child(elementResolvedClass, entity, context.name)
 
           val deserialized = DeserializerRegistry
             .findDeserializer(elementResolvedClass.raw.asInstanceOf[Class[Any]], entry.getValue)

@@ -1,6 +1,6 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.JsonContext
+import com.anjunar.json.mapper.DeserializationContext
 import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonNode, JsonObject}
 import com.anjunar.json.mapper.provider.EntityProvider
 import com.anjunar.scala.universe.TypeResolver
@@ -12,7 +12,7 @@ import java.util
 
 class ArrayDeserializer extends Deserializer[util.Collection[?]] {
 
-  override def deserialize(json: JsonNode, context: JsonContext): util.Collection[?] =
+  override def deserialize(json: JsonNode, context: DeserializationContext): util.Collection[?] =
     json match {
       case array: JsonArray =>
         val collection: util.Collection[Any] =
@@ -46,17 +46,7 @@ class ArrayDeserializer extends Deserializer[util.Collection[?]] {
                 if (actualType != declaredType) TypeResolver.resolve(actualType)
                 else if (entity == null || !Modifier.isAbstract(declaredType.getModifiers)) elementResolvedClass
                 else TypeResolver.resolve(entity.getClass)
-              val jsonContext = new JsonContext(
-                actualResolvedClass,
-                entity,
-                context.graph,
-                context.loader,
-                context.validator,
-                context.inject,
-                context,
-                context.name,
-                index
-              )
+              val jsonContext = context.child(actualResolvedClass, entity, context.name, index)
 
               val deserialized = DeserializerRegistry
                 .findDeserializer(actualResolvedClass.raw.asInstanceOf[Class[Any]], node)
@@ -91,17 +81,7 @@ class ArrayDeserializer extends Deserializer[util.Collection[?]] {
                   }
                 }
 
-              val jsonContext = new JsonContext(
-                elementResolvedClass,
-                elementInstance,
-                context.graph,
-                context.loader,
-                context.validator,
-                context.inject,
-                context,
-                context.name,
-                index
-              )
+              val jsonContext = context.child(elementResolvedClass, elementInstance, context.name, index)
 
               val deserialized = DeserializerRegistry
                 .findDeserializer(elementResolvedClass.raw.asInstanceOf[Class[Any]], elementNode)

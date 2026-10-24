@@ -1,13 +1,13 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.JsonContext
+import com.anjunar.json.mapper.DeserializationContext
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonString}
 
 import java.time.temporal.Temporal
 
 class TemporalDeserializer extends Deserializer[Temporal] {
 
-  override def deserialize(json: JsonNode, context: JsonContext): Temporal =
+  override def deserialize(json: JsonNode, context: DeserializationContext): Temporal =
     json match {
       case value: JsonString =>
         val parseMethod = context.resolvedClass.raw.getMethods.find(method => method.getName == "parse")

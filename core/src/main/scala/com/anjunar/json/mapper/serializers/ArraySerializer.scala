@@ -1,6 +1,6 @@
 package com.anjunar.json.mapper.serializers
 
-import com.anjunar.json.mapper.JavaContext
+import com.anjunar.json.mapper.SerializationContext
 import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonNode}
 import com.anjunar.scala.universe.TypeResolver
 import jakarta.json.bind.annotation.JsonbSubtype
@@ -8,7 +8,7 @@ import java.util
 
 class ArraySerializer extends Serializer[util.Collection[?]] {
 
-  override def serialize(input: util.Collection[?], context: JavaContext): JsonNode = {
+  override def serialize(input: util.Collection[?], context: SerializationContext): JsonNode = {
     val nodes = new util.ArrayList[JsonNode]()
     val jsonArray = new JsonArray(nodes)
 
@@ -32,14 +32,8 @@ class ArraySerializer extends Serializer[util.Collection[?]] {
         .find(elementType.raw.asInstanceOf[Class[Any]], any)
         .asInstanceOf[Serializer[Any]]
 
-      val javaContext = new JavaContext(
-        elementType,
-        context.graph,
-        context.inject,
-        context,
-        context.name,
-        if (context.schema == null) null else context.schema.items
-      )
+      val javaContext =
+        context.child(elementType, context.name, if (context.schema == null) null else context.schema.items)
 
       val node = serializer.serialize(any, javaContext)
       nodes.add(node)

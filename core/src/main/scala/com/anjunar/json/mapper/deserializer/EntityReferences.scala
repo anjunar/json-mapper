@@ -1,13 +1,13 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.JsonContext
+import com.anjunar.json.mapper.DeserializationContext
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonString}
 import com.anjunar.json.mapper.provider.EntityProvider
 
 import java.util
 
 private[deserializer] object EntityReferences {
-  def load(node: JsonNode, declaredType: Class[?], context: JsonContext): Any = {
+  def load(node: JsonNode, declaredType: Class[?], context: DeserializationContext): Any = {
     val id = node match {
       case text: JsonString =>
         val parsed = util.UUID.fromString(text.value)

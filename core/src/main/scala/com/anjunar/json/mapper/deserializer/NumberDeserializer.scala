@@ -1,6 +1,6 @@
 package com.anjunar.json.mapper.deserializer
 
-import com.anjunar.json.mapper.JsonContext
+import com.anjunar.json.mapper.DeserializationContext
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonNumber, JsonString}
 import java.lang.{Byte as JavaByte}
 import java.lang.{Double as JavaDouble}
@@ -13,7 +13,7 @@ import scala.math.BigDecimal
 
 class NumberDeserializer extends Deserializer[Number] {
 
-  override def deserialize(json: JsonNode, context: JsonContext): Number =
+  override def deserialize(json: JsonNode, context: DeserializationContext): Number =
     json match {
       case value: JsonNumber =>
         // The type resolver reports Scala's Int as java.lang.Integer, a Java field declares int: both mean the same.

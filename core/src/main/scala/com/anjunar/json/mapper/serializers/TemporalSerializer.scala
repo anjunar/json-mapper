@@ -1,6 +1,6 @@
 package com.anjunar.json.mapper.serializers
 
-import com.anjunar.json.mapper.JavaContext
+import com.anjunar.json.mapper.SerializationContext
 import com.anjunar.json.mapper.intermediate.model.{JsonNode, JsonString}
 
 import java.time.Instant
@@ -12,7 +12,7 @@ import java.time.LocalTime
 
 class TemporalSerializer extends Serializer[Temporal] {
 
-  override def serialize(input: Temporal, context: JavaContext): JsonNode =
+  override def serialize(input: Temporal, context: SerializationContext): JsonNode =
     input match {
       case value: Instant =>
         new JsonString(DateTimeFormatter.ISO_INSTANT.format(value))

@@ -1,6 +1,6 @@
 package com.anjunar.json.mapper.schema
 
-import com.anjunar.json.mapper.JsonPatch
+import com.anjunar.json.mapper.{BeanMetadata, JsonPatch}
 import com.anjunar.json.mapper.annotations.UseConverter
 import com.anjunar.json.mapper.provider.{DTO, EntityProvider}
 import com.anjunar.scala.universe.{ResolvedClass, TypeResolver}
@@ -28,11 +28,9 @@ object JsonSchemaDerivation {
   )
 
   def properties(target: Type): Seq[AnnotationProperty] =
-    AnnotationIntrospector.create(TypeResolver.resolve(target), classOf[JsonbProperty]).properties.toSeq
+    BeanMetadata.model(TypeResolver.resolve(target)).properties.toSeq
 
-  def name(property: AnnotationProperty): String = Option(property.findAnnotation(classOf[JsonbProperty]).value())
-    .filter(_.nonEmpty)
-    .getOrElse(property.name)
+  def name(property: AnnotationProperty): String = BeanMetadata.jsonName(property)
 
   def model(
     target: Type,

@@ -1,10 +1,10 @@
 package com.anjunar.json.mapper.serializers
 
-import com.anjunar.json.mapper.JavaContext
+import com.anjunar.json.mapper.SerializationContext
 import com.anjunar.json.mapper.intermediate.model.JsonNode
 
 trait Serializer[T] {
 
-  def serialize(input: T, context: JavaContext): JsonNode
+  def serialize(input: T, context: SerializationContext): JsonNode
 
 }
