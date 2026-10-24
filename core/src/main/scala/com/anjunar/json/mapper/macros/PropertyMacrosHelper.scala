@@ -6,6 +6,7 @@ import _root_.reflect.macros.PropertySupport
 
 import scala.collection.mutable
 
+@deprecated("Unused by the mapper; it will be removed in 2.0", "1.2.0")
 object PropertyMacrosHelper {
 
   inline def describeProperties[E]: mutable.LinkedHashMap[String, Property[E, Any]] =

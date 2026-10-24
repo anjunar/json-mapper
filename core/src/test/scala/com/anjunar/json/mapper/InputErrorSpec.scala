@@ -33,15 +33,11 @@ class InputErrorSpec extends AnyFunSuite with Matchers {
   private val noLoader: EntityLoader = (_, _) => null
 
   private def deserialize[T <: AnyRef](target: T, json: String): T = {
-    JsonMapper.deserialize(
-      JsonParser.parse(json),
-      target,
-      TypeResolver.resolve(target.getClass),
-      null,
+    new JsonMapper(
+      Option(validator),
       noLoader,
-      inject,
-      validator
-    )
+      inject
+    ).deserialize(JsonParser.parse(json), target, TypeResolver.resolve(target.getClass))
     target
   }
 

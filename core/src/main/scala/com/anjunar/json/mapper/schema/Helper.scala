@@ -5,6 +5,7 @@ import java.util
 
 import java.lang.reflect.{ParameterizedType, Type}
 
+@deprecated("Unused by the mapper; it will be removed in 2.0", "1.2.0")
 object Helper {
 
   def entityType(propertyType: Type): Class[?] = {

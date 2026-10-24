@@ -31,7 +31,7 @@ class JsonSchemaSpec extends AnyFunSuite {
     val value = jackson.readTree(JsonSchema.encode(schema))
     assert(value.at("/properties/label/maxLength").asInt() == 12)
     assert(!value.path("properties").has("caption"))
-    assert(value.at("/properties/entries/additionalProperties/items/format").asText() == "uuid")
+    assert(value.at("/properties/entries/additionalProperties/items/format").asString() == "uuid")
     assert(value.at("/properties/offset/minimum").asLong() == 0)
     assert(value.at("/properties/offset/maximum").asLong() == 8)
     assert(schema.required.asScala.contains("label"))
@@ -39,24 +39,24 @@ class JsonSchemaSpec extends AnyFunSuite {
 
   test("a converter property is described by its string wire form, not by its Java type") {
     val schema = jackson.readTree(JsonSchema.encode(JsonMapper.schema(classOf[ConvertedProfileDto])))
-    assert(schema.at("/properties/primaryTag/type").asText() == "string")
+    assert(schema.at("/properties/primaryTag/type").asString() == "string")
     assert(!schema.at("/properties/primaryTag").has("properties"))
   }
 
   test("numbers, decimals, enums, sets and binary values match their JSON representations") {
     val schema = jackson.readTree(JsonSchema.encode(JsonMapper.schema(classOf[SchemaProbe])))
-    assert(schema.at("/properties/price/type").asText() == "number")
+    assert(schema.at("/properties/price/type").asString() == "number")
     assert(schema.at("/properties/price/exclusiveMinimum").decimalValue() == new JavaBigDecimal("0.01"))
     assert(schema.at("/properties/price/maximum").decimalValue() == new JavaBigDecimal("999.99"))
     assert(schema.at("/properties/unit/enum").size() == TimeUnit.values().length)
     assert(schema.at("/properties/tags/uniqueItems").asBoolean())
-    assert(schema.at("/properties/bytes/contentEncoding").asText() == "base64")
+    assert(schema.at("/properties/bytes/contentEncoding").asString() == "base64")
   }
 
   test("recursive object graphs use finite local references with resolvable definitions") {
     val text = JsonSchema.encode(JsonMapper.schema(classOf[SchemaRecursive]))
     val schema = jackson.readTree(text)
-    val reference = schema.at("/properties/child/$ref").asText()
+    val reference = schema.at("/properties/child/$ref").asString()
     assert(reference.startsWith("#/$defs/"))
     assert(schema.at(reference.drop(1)).path("properties").has("name"))
     assert(text.length < 6000)
@@ -76,26 +76,18 @@ class JsonSchemaSpec extends AnyFunSuite {
       new ParameterMessageInterpolator
     ).buildValidatorFactory()
     try {
-      val command = JsonMapper.deserialize(
+      val command = new JsonMapper(Option(factory.getValidator), EntityLoader.none, inject).deserialize(
         JsonParser.parse("""{"changes":{"title":"","protectedValue":"attack"}}"""),
         new SchemaPatchCommand,
-        TypeResolver.resolve(classOf[SchemaPatchCommand]),
-        null,
-        null,
-        inject,
-        factory.getValidator
+        TypeResolver.resolve(classOf[SchemaPatchCommand])
       ).asInstanceOf[SchemaPatchCommand]
       val target = new SchemaPatchTarget
       assert(target.title == "old" && target.protectedValue == "retained" && target.description == "untouched")
-      val prepared = JsonMapper.prepare(
-        JsonParser.parse(command.changes.encoded),
-        target,
-        TypeResolver.resolve(classOf[SchemaPatchTarget]),
-        null,
-        null,
-        inject,
-        factory.getValidator
-      )
+      val prepared = new JsonMapper(
+        Option(factory.getValidator),
+        EntityLoader.none,
+        inject
+      ).prepare(JsonParser.parse(command.changes.encoded), target, TypeResolver.resolve(classOf[SchemaPatchTarget]))
       assert(!prepared.isApplied)
       prepared.applyChanges()
       assert(target.title == "" && target.protectedValue == "retained" && target.description == "untouched")
@@ -108,7 +100,7 @@ class JsonSchemaSpec extends AnyFunSuite {
   test("a typed patch accepts only objects and retains explicit null and empty values") {
     val patch = JsonPatch.parse[SchemaPatchTarget]("""{"title":"","description":null}""")
     assert(jackson.readTree(patch.encoded).path("description").isNull())
-    assert(jackson.readTree(patch.encoded).path("title").asText() == "")
+    assert(jackson.readTree(patch.encoded).path("title").asString() == "")
     intercept[IllegalArgumentException](JsonPatch.parse[SchemaPatchTarget]("[]"))
   }
 

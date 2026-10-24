@@ -5,14 +5,74 @@ import com.anjunar.json.mapper.intermediate.JsonGenerator
 import com.anjunar.json.mapper.intermediate.model.JsonNode
 import com.anjunar.json.mapper.schema.{BeanSchema, JsonSchema, JsonSchemaDerivation}
 import com.anjunar.json.mapper.schema.property.Property
-import scala.jdk.CollectionConverters.*
-import com.anjunar.scala.universe.introspector.AnnotationProperty
-import java.lang.reflect.Type
-import com.anjunar.json.mapper.serializers.{Serializer, SerializerRegistry}
+import com.anjunar.json.mapper.serializers.SerializerRegistry
 import com.anjunar.scala.universe.ResolvedClass
+import com.anjunar.scala.universe.introspector.AnnotationProperty
 import jakarta.persistence.EntityGraph
 import jakarta.validation.Validator
-import java.util
+import java.lang.reflect.Type
+import scala.jdk.CollectionConverters.*
+
+/**
+ * Maps between JSON and an existing object graph with what the application provides: a Validator for incoming
+ * values, an EntityLoader that resolves and authorizes referenced IDs, and an injector for rule classes. Build it
+ * where these are known, for example once per request, and use it for every call. Only serialization and documents
+ * without properties, such as a single date, work without a Validator.
+ */
+final class JsonMapper(
+  val validator: Option[Validator] = None,
+  val loader: EntityLoader = EntityLoader.none,
+  val inject: Inject = Inject.constructor
+) {
+
+  /** Writes the value as JSON. A graph limits entity properties, a projection narrows the output further. */
+  def serialize(
+    instance: Any,
+    resolvedClass: ResolvedClass,
+    graph: Option[EntityGraph[?]] = None,
+    projection: Option[JsonSchema] = None
+  ): String = {
+    val serializer = SerializerRegistry.find(resolvedClass.raw.asInstanceOf[Class[Any]], instance)
+    val context = new SerializationContext(resolvedClass, graph.orNull, inject, null, null, projection.orNull)
+    JsonGenerator.generate(serializer.serialize(instance, context))
+  }
+
+  /**
+   * Merges the document into the instance. Every invalid value is reported at once in an ErrorRequestException, and
+   * then nothing is written.
+   */
+  def deserialize(
+    json: JsonNode,
+    instance: AnyRef,
+    resolvedClass: ResolvedClass,
+    graph: Option[EntityGraph[?]] = None
+  ): Any = {
+    val deserializer = DeserializerRegistry.findDeserializer(resolvedClass.raw.asInstanceOf[Class[Any]], json)
+    val context =
+      new DeserializationContext(resolvedClass, instance, graph.orNull, loader, validator.orNull, inject, null, null)
+    val deserialized =
+      try {
+        deserializer.deserialize(json, context)
+      } catch {
+        case invalid: InvalidValue =>
+          context.run.reject(invalid.error)
+          null
+      }
+    // Writes happen only now, and only if no field of the whole document was invalid.
+    context.run.complete()
+    deserialized
+  }
+
+  /** Defers [[deserialize]] until [[PreparedChange.applyChanges]]; nothing is read, loaded or written before. */
+  def prepare[T](
+    json: JsonNode,
+    entity: T,
+    resolvedClass: ResolvedClass,
+    graph: Option[EntityGraph[?]] = None
+  ): PreparedChange[T] =
+    new PreparedChange(entity, json, resolvedClass, graph, this)
+
+}
 
 object JsonMapper {
 
@@ -50,6 +110,10 @@ object JsonMapper {
     result.copy(required = required.map(property => aliases(property.name)).asJava)
   }
 
+  @deprecated(
+    "Use new JsonMapper(Some(validator), loader, inject).prepare(json, entity, resolvedClass, Option(graph))",
+    "1.2.0"
+  )
   def prepare[T](
     jsonNode: JsonNode,
     entity: T,
@@ -59,8 +123,12 @@ object JsonMapper {
     inject: [X] => Class[X] => X,
     validator: Validator
   ): PreparedChange[T] =
-    new PreparedChange(entity, jsonNode, resolvedClass, graph, loader, inject, validator)
+    legacy(loader, inject, validator).prepare(jsonNode, entity, resolvedClass, Option(graph))
 
+  @deprecated(
+    "Use new JsonMapper(Some(validator), loader, inject).deserialize(json, instance, resolvedClass, Option(graph))",
+    "1.2.0"
+  )
   def deserialize(
     jsonNode: JsonNode,
     instance: AnyRef,
@@ -69,41 +137,19 @@ object JsonMapper {
     loader: EntityLoader,
     inject: [T] => Class[T] => T,
     validator: Validator
-  ): Any = {
-    val deserializer = DeserializerRegistry.findDeserializer(resolvedClass.raw.asInstanceOf[Class[Any]], jsonNode)
-    val context = new DeserializationContext(resolvedClass, instance, graph, loader, validator, inject, null, null)
-    val deserialized =
-      try {
-        deserializer.deserialize(jsonNode, context)
-      } catch {
-        case invalid: InvalidValue =>
-          context.run.reject(invalid.error)
-          null
-      }
-    // Writes happen only now, and only if no field of the whole document was invalid.
-    context.run.complete()
-    deserialized
-  }
+  ): Any =
+    legacy(loader, inject, validator).deserialize(jsonNode, instance, resolvedClass, Option(graph))
 
+  @deprecated("Use new JsonMapper(inject = inject).serialize(instance, resolvedClass, Option(graph))", "1.2.0")
   def serialize(
     instance: Any,
     resolvedClass: ResolvedClass,
     graph: EntityGraph[?],
     inject: [T] => Class[T] => T
-  ): String = serialize(instance, resolvedClass, graph, inject, null)
+  ): String =
+    legacy(null, inject, null).serialize(instance, resolvedClass, Option(graph))
 
-  /** A projection narrows output and retains required empty values; BeanSchema and graph rights still apply. */
-  def serialize(
-    instance: Any,
-    resolvedClass: ResolvedClass,
-    graph: EntityGraph[?],
-    inject: [T] => Class[T] => T,
-    projection: JsonSchema
-  ): String = {
-    val serializer = SerializerRegistry.find(resolvedClass.raw.asInstanceOf[Class[Any]], instance)
-    val node =
-      serializer.serialize(instance, new SerializationContext(resolvedClass, graph, inject, null, null, projection))
-    JsonGenerator.generate(node)
-  }
+  private def legacy(loader: EntityLoader, inject: Inject, validator: Validator): JsonMapper =
+    new JsonMapper(Option(validator), Option(loader).getOrElse(EntityLoader.none), inject)
 
 }

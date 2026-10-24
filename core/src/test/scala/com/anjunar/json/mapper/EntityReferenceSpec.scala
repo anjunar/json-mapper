@@ -39,15 +39,11 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
   }
 
   private def prepare[T <: AnyRef](value: T, json: String, loader: EntityLoader = unexpectedLoader): PreparedChange[T] =
-    JsonMapper.prepare(
-      JsonParser.parse(json),
-      value,
-      TypeResolver.resolve(value.getClass),
-      null,
+    new JsonMapper(
+      Option(factory.getValidator),
       loader,
-      inject,
-      factory.getValidator
-    )
+      inject
+    ).prepare(JsonParser.parse(json), value, TypeResolver.resolve(value.getClass))
 
   test("a new to-one EntityProvider reference is resolved only when the prepared change is applied") {
     val post = new ReferencePost()
@@ -385,16 +381,13 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
         )
       ))
     )
-    JsonMapper.prepare(
+    new JsonMapper(Option(factory.getValidator), loaderFor(target), inject).prepare(
       JsonParser.parse(
         s"""{"author":{"id":"${target.id}","name":"Updated","version":99}}"""
       ),
       post,
       TypeResolver.resolve(classOf[ReferencePost]),
-      graph,
-      loaderFor(target),
-      inject,
-      factory.getValidator
+      Option(graph)
     ).applyChanges()
     assert(post.author eq target)
     assert(target.name == "Updated")
@@ -404,14 +397,11 @@ class EntityReferenceSpec extends AnyFunSuite with BeforeAndAfterAll {
   test("an unselected relationship never reaches the loader") {
     val post = new ReferencePost()
     val graph = stub(classOf[EntityGraph[?]], Map("getAttributeNodes" -> util.Collections.emptyList()))
-    JsonMapper.prepare(
+    new JsonMapper(Option(factory.getValidator), unexpectedLoader, inject).prepare(
       JsonParser.parse(s"""{"author":{"id":"${util.UUID.randomUUID()}"}}"""),
       post,
       TypeResolver.resolve(classOf[ReferencePost]),
-      graph,
-      unexpectedLoader,
-      inject,
-      factory.getValidator
+      Option(graph)
     ).applyChanges()
     assert(post.author == null)
   }

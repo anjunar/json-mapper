@@ -12,18 +12,14 @@ class TemporalSpec extends AnyFunSuite with Matchers {
   private val noInject: [T] => Class[T] => T = [T] => (_: Class[T]) => null.asInstanceOf[T]
 
   private def write(value: Any): String =
-    JsonMapper.serialize(value, TypeResolver.resolve(value.getClass), null, noInject)
+    new JsonMapper(inject = noInject).serialize(value, TypeResolver.resolve(value.getClass))
 
   private def readInstant(json: String): Instant =
-    JsonMapper.deserialize(
-      JsonParser.parse(json),
-      null,
-      TypeResolver.resolve(classOf[Instant]),
-      null,
-      null,
-      noInject,
-      null
-    ).asInstanceOf[Instant]
+    new JsonMapper(
+      None,
+      EntityLoader.none,
+      noInject
+    ).deserialize(JsonParser.parse(json), null, TypeResolver.resolve(classOf[Instant])).asInstanceOf[Instant]
 
   test("Instant round trips as ISO-8601 UTC without losing nanoseconds") {
     for (text <- Seq("1970-01-01T00:00:00Z", "2026-10-20T10:11:12.123456789Z", "1969-12-31T23:59:59.999999999Z")) {
@@ -52,7 +48,11 @@ class TemporalSpec extends AnyFunSuite with Matchers {
   }
 
   private def read[T](json: String, clazz: Class[T]): T =
-    JsonMapper.deserialize(JsonParser.parse(json), null, TypeResolver.resolve(clazz), null, null, noInject, null)
+    new JsonMapper(
+      None,
+      EntityLoader.none,
+      noInject
+    ).deserialize(JsonParser.parse(json), null, TypeResolver.resolve(clazz))
       .asInstanceOf[T]
 
   test("every other java.time type is written in ISO-8601 form and read back") {

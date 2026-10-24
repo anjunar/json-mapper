@@ -36,12 +36,7 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     listTag.label = "scala"
     profile.tags.add(listTag)
 
-    val json = JsonMapper.serialize(
-      profile,
-      TypeResolver.resolve(classOf[ProfileDto]),
-      null,
-      noInject
-    )
+    val json = new JsonMapper(inject = noInject).serialize(profile, TypeResolver.resolve(classOf[ProfileDto]))
 
     val parsed = JsonParser.parse(json).asInstanceOf[JsonObject]
 
@@ -69,12 +64,7 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     nested.put("enabled", Boolean.box(true))
     profile.attributes.put("flags", nested)
 
-    val json = JsonMapper.serialize(
-      profile,
-      TypeResolver.resolve(classOf[ProfileDto]),
-      null,
-      noInject
-    )
+    val json = new JsonMapper(inject = noInject).serialize(profile, TypeResolver.resolve(classOf[ProfileDto]))
 
     val parsed = JsonParser.parse(json).asInstanceOf[JsonObject]
 
@@ -110,15 +100,11 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
          |  ]
          |}""".stripMargin
 
-    val result = JsonMapper.deserialize(
-      JsonParser.parse(json),
-      profile,
-      TypeResolver.resolve(classOf[ProfileDto]),
-      null,
+    val result = new JsonMapper(
+      Option(emptyValidator),
       loader,
-      noInject,
-      emptyValidator
-    ).asInstanceOf[ProfileDto]
+      noInject
+    ).deserialize(JsonParser.parse(json), profile, TypeResolver.resolve(classOf[ProfileDto])).asInstanceOf[ProfileDto]
 
     result shouldBe profile
     result.name shouldBe "Updated"
@@ -135,15 +121,11 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     val json = """{"fields":[{"@type":"TextFieldDto","key":"summary","value":"Hello"},
                  {"@type":"FlagFieldDto","key":"visible","enabled":true}]}"""
 
-    JsonMapper.deserialize(
-      JsonParser.parse(json),
-      holder,
-      TypeResolver.resolve(classOf[PolymorphicHolder]),
-      null,
+    new JsonMapper(
+      Option(emptyValidator),
       nullLoader,
-      noInject,
-      emptyValidator
-    )
+      noInject
+    ).deserialize(JsonParser.parse(json), holder, TypeResolver.resolve(classOf[PolymorphicHolder]))
 
     holder.fields.size() shouldBe 2
     holder.fields.get(0).asInstanceOf[TextFieldDto].value shouldBe "Hello"
@@ -162,12 +144,9 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     flag.enabled = true
     holder.fields.add(flag)
 
-    val json = JsonParser.parse(JsonMapper.serialize(
-      holder,
-      TypeResolver.resolve(classOf[PolymorphicHolder]),
-      null,
+    val json = JsonParser.parse(new JsonMapper(inject =
       noInject
-    )).asInstanceOf[JsonObject]
+    ).serialize(holder, TypeResolver.resolve(classOf[PolymorphicHolder]))).asInstanceOf[JsonObject]
     val fields = json.value.get("fields").asInstanceOf[JsonArray]
     val serializedText = fields.value.get(0).asInstanceOf[JsonObject]
     val serializedFlag = fields.value.get(1).asInstanceOf[JsonObject]
@@ -182,15 +161,11 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     val holder = new PolymorphicHolder
     val json = """{"fields":[{"@type":"ProfileDto","key":"summary"}]}"""
 
-    val failure = the[ErrorRequestException] thrownBy JsonMapper.deserialize(
-      JsonParser.parse(json),
-      holder,
-      TypeResolver.resolve(classOf[PolymorphicHolder]),
-      null,
+    val failure = the[ErrorRequestException] thrownBy new JsonMapper(
+      Option(emptyValidator),
       nullLoader,
-      noInject,
-      emptyValidator
-    )
+      noInject
+    ).deserialize(JsonParser.parse(json), holder, TypeResolver.resolve(classOf[PolymorphicHolder]))
 
     failure.errors.get(0).path shouldBe util.Arrays.asList("fields", Integer.valueOf(0), "@type")
     holder.fields.isEmpty shouldBe true
@@ -199,14 +174,10 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
   test("deserialize should apply a property converter before DTO handling") {
     val profile = new ConvertedProfileDto
 
-    val result = JsonMapper.deserialize(
+    val result = new JsonMapper(Option(emptyValidator), nullLoader, noInject).deserialize(
       JsonParser.parse("""{"primaryTag":"converted"}"""),
       profile,
-      TypeResolver.resolve(classOf[ConvertedProfileDto]),
-      null,
-      nullLoader,
-      noInject,
-      emptyValidator
+      TypeResolver.resolve(classOf[ConvertedProfileDto])
     ).asInstanceOf[ConvertedProfileDto]
 
     result.primaryTag.label shouldBe "converted"
@@ -214,14 +185,10 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
 
   test("a converter property that does not receive a string reports its field path") {
     val error = intercept[ErrorRequestException] {
-      JsonMapper.deserialize(
+      new JsonMapper(Option(emptyValidator), nullLoader, noInject).deserialize(
         JsonParser.parse("""{"primaryTag":{"label":"as object"}}"""),
         new ConvertedProfileDto,
-        TypeResolver.resolve(classOf[ConvertedProfileDto]),
-        null,
-        nullLoader,
-        noInject,
-        emptyValidator
+        TypeResolver.resolve(classOf[ConvertedProfileDto])
       )
     }
     error.errors.size() shouldBe 1
@@ -244,15 +211,11 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
         |  "aliases": ["p", "patrick"]
         |}""".stripMargin
 
-    val result = JsonMapper.deserialize(
-      JsonParser.parse(json),
-      profile,
-      TypeResolver.resolve(classOf[ProfileDto]),
-      null,
+    val result = new JsonMapper(
+      Option(emptyValidator),
       nullLoader,
-      noInject,
-      emptyValidator
-    ).asInstanceOf[ProfileDto]
+      noInject
+    ).deserialize(JsonParser.parse(json), profile, TypeResolver.resolve(classOf[ProfileDto])).asInstanceOf[ProfileDto]
 
     result.name shouldBe "Updated"
     result.nickname shouldBe "PJ"
@@ -271,15 +234,11 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     val profile = new ProfileDto
     profile.primaryTag = new TagDto
 
-    val exception = the[ErrorRequestException] thrownBy JsonMapper.deserialize(
-      JsonParser.parse("""{"name":"forbidden"}"""),
-      profile,
-      TypeResolver.resolve(classOf[ProfileDto]),
-      null,
+    val exception = the[ErrorRequestException] thrownBy new JsonMapper(
+      Option(validatorRejecting("name", "must not be forbidden")),
       nullLoader,
-      noInject,
-      validatorRejecting("name", "must not be forbidden")
-    )
+      noInject
+    ).deserialize(JsonParser.parse("""{"name":"forbidden"}"""), profile, TypeResolver.resolve(classOf[ProfileDto]))
 
     exception.errors.size() shouldBe 1
     exception.errors.get(0).path shouldBe util.Arrays.asList("name")
@@ -291,14 +250,10 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
     val profile = new ProfileDto
     profile.name = "Original"
 
-    val change = JsonMapper.prepare(
+    val change = new JsonMapper(Option(emptyValidator), nullLoader, noInject).prepare(
       JsonParser.parse("""{"name": "Updated", "nickname": "PJ"}"""),
       profile,
-      TypeResolver.resolve(classOf[ProfileDto]),
-      null,
-      nullLoader,
-      noInject,
-      emptyValidator
+      TypeResolver.resolve(classOf[ProfileDto])
     )
 
     change.getEntity() shouldBe profile
@@ -315,15 +270,11 @@ class JsonMapperSpec extends AnyFunSuite with Matchers {
 
   test("applying a prepared change reports validation errors without writing the invalid field") {
     val profile = new ProfileDto
-    val change = JsonMapper.prepare(
-      JsonParser.parse("""{"name": "forbidden"}"""),
-      profile,
-      TypeResolver.resolve(classOf[ProfileDto]),
-      null,
+    val change = new JsonMapper(
+      Option(validatorRejecting("name", "must not be forbidden")),
       nullLoader,
-      noInject,
-      validatorRejecting("name", "must not be forbidden")
-    )
+      noInject
+    ).prepare(JsonParser.parse("""{"name": "forbidden"}"""), profile, TypeResolver.resolve(classOf[ProfileDto]))
 
     an[ErrorRequestException] should be thrownBy change.applyChanges()
     profile.name shouldBe null

@@ -25,20 +25,16 @@ class SubtypeSpec extends AnyFunSuite with Matchers {
   private val inject: [T] => Class[T] => T = [T] => (clazz: Class[T]) => clazz.getDeclaredConstructor().newInstance()
 
   private def deserialize[T <: AnyRef](target: T, json: String): T = {
-    JsonMapper.deserialize(
-      JsonParser.parse(json),
-      target,
-      TypeResolver.resolve(target.getClass),
-      null,
+    new JsonMapper(
+      Option(validator),
       (_, _) => null,
-      inject,
-      validator
-    )
+      inject
+    ).deserialize(JsonParser.parse(json), target, TypeResolver.resolve(target.getClass))
     target
   }
 
   private def serialize(value: AnyRef): JsonObject =
-    JsonParser.parse(JsonMapper.serialize(value, TypeResolver.resolve(value.getClass), null, inject))
+    JsonParser.parse(new JsonMapper(inject = inject).serialize(value, TypeResolver.resolve(value.getClass)))
       .asInstanceOf[JsonObject]
 
   test("a to-one field declared with a base type creates the subtype its @JsonbTypeInfo alias names") {

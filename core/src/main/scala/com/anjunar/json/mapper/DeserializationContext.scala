@@ -34,6 +34,9 @@ class DeserializationContext(
    * document is known to be valid; with violations they are reported at this context's path and nothing is written.
    */
   def checkForViolations(clazz: Class[?], name: String, value: Any, callback: () => Unit): Unit = {
+    if (validator == null) {
+      throw new IllegalStateException("Deserializing properties needs a Validator")
+    }
     val checked = validator.validateValue(clazz, name, value)
     if (checked.isEmpty) {
       run.defer(callback)

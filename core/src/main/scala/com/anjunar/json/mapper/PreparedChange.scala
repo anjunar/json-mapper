@@ -3,16 +3,14 @@ package com.anjunar.json.mapper
 import com.anjunar.json.mapper.intermediate.model.JsonNode
 import com.anjunar.scala.universe.ResolvedClass
 import jakarta.persistence.EntityGraph
-import jakarta.validation.Validator
 
+/** A deserialization that has not happened yet. It applies at most once. */
 final class PreparedChange[T] private[mapper] (
   entity: T,
   json: JsonNode,
   resolvedClass: ResolvedClass,
-  graph: EntityGraph[?],
-  loader: EntityLoader,
-  inject: [X] => Class[X] => X,
-  validator: Validator
+  graph: Option[EntityGraph[?]],
+  mapper: JsonMapper
 ) {
 
   private var applied = false
@@ -23,7 +21,7 @@ final class PreparedChange[T] private[mapper] (
 
   def applyChanges(): T = {
     if (applied) throw IllegalStateException("The change has already been applied")
-    JsonMapper.deserialize(json, entity.asInstanceOf[AnyRef], resolvedClass, graph, loader, inject, validator)
+    mapper.deserialize(json, entity.asInstanceOf[AnyRef], resolvedClass, graph)
     applied = true
     entity
   }

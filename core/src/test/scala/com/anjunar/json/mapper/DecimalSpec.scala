@@ -25,23 +25,16 @@ class DecimalSpec extends AnyFunSuite with Matchers {
   }
 
   private def serialize(price: PriceDto): JsonObject =
-    JsonParser.parse(JsonMapper.serialize(
-      price,
-      TypeResolver.resolve(classOf[PriceDto]),
-      null,
+    JsonParser.parse(new JsonMapper(inject =
       noInject
-    )).asInstanceOf[JsonObject]
+    ).serialize(price, TypeResolver.resolve(classOf[PriceDto]))).asInstanceOf[JsonObject]
 
   private def deserialize(json: String): PriceDto =
-    JsonMapper.deserialize(
-      JsonParser.parse(json),
-      new PriceDto,
-      TypeResolver.resolve(classOf[PriceDto]),
-      null,
+    new JsonMapper(
+      Option(DecimalSpec.validator),
       loader,
-      noInject,
-      DecimalSpec.validator
-    ).asInstanceOf[PriceDto]
+      noInject
+    ).deserialize(JsonParser.parse(json), new PriceDto, TypeResolver.resolve(classOf[PriceDto])).asInstanceOf[PriceDto]
 
   test("exact decimals are written with their digits and scale, never with an exponent") {
     val price = new PriceDto

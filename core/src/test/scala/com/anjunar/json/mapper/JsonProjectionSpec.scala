@@ -22,9 +22,11 @@ class JsonProjectionSpec extends AnyFunSuite {
     value.children.add(new ProjectionEnvelope)
     value.entries.put("nested", new ProjectionEnvelope)
     val schema = JsonMapper.schema(classOf[ProjectionEnvelope], _.name != "excluded")
-    val output = json.readTree(JsonMapper.serialize(value, TypeResolver.resolve(value.getClass), null, inject, schema))
+    val output = json.readTree(new JsonMapper(inject =
+      inject
+    ).serialize(value, TypeResolver.resolve(value.getClass), projection = Option(schema)))
     assert(output.has("enabled") && !output.get("enabled").asBoolean())
-    assert(output.has("label") && output.get("label").asText() == "")
+    assert(output.has("label") && output.get("label").asString() == "")
     assert(output.at("/children/0/children").isArray() && output.at("/children/0/children").isEmpty())
     assert(output.at("/entries/nested/entries").isObject() && output.at("/entries/nested/entries").isEmpty())
     assert(!output.has("optional") && !output.has("excluded") && !output.has("@type"))
@@ -33,17 +35,19 @@ class JsonProjectionSpec extends AnyFunSuite {
 
   test("ordinary serialization retains its existing omission rules") {
     val value = new ProjectionEnvelope
-    val output = json.readTree(JsonMapper.serialize(value, TypeResolver.resolve(value.getClass), null, inject))
+    val output = json.readTree(new JsonMapper(inject = inject).serialize(value, TypeResolver.resolve(value.getClass)))
     assert(!output.has("enabled") && !output.has("label") && !output.has("children"))
-    assert(output.path("excluded").asText() == "private")
-    assert(output.path("@type").asText() == "ProjectionEnvelope")
+    assert(output.path("excluded").asString() == "private")
+    assert(output.path("@type").asString() == "ProjectionEnvelope")
   }
 
   test("a required field never overrides BeanSchema visibility") {
     val value = new ProjectionEntity
     val schema =
       JsonMapper.schema(classOf[ProjectionEntity]).copy(required = util.List.of("id", "version", "enabled", "secret"))
-    val output = json.readTree(JsonMapper.serialize(value, TypeResolver.resolve(value.getClass), null, inject, schema))
+    val output = json.readTree(new JsonMapper(inject =
+      inject
+    ).serialize(value, TypeResolver.resolve(value.getClass), projection = Option(schema)))
     assert(output.has("enabled") && !output.get("enabled").asBoolean())
     assert(!output.has("secret") && schema.required.contains("secret"))
   }
@@ -66,12 +70,11 @@ class JsonProjectionSpec extends AnyFunSuite {
         }
     ).asInstanceOf[EntityGraph[?]]
     val value = new ProjectionEntity
-    val output = json.readTree(JsonMapper.serialize(
+    val output = json.readTree(new JsonMapper(inject = inject).serialize(
       value,
       TypeResolver.resolve(value.getClass),
-      graph,
-      inject,
-      JsonMapper.schema(classOf[ProjectionEntity]).copy(required = util.List.of("id", "enabled"))
+      Option(graph),
+      projection = Option(JsonMapper.schema(classOf[ProjectionEntity]).copy(required = util.List.of("id", "enabled")))
     ))
     assert(output.has("id") && !output.has("enabled") && !output.has("secret"))
   }

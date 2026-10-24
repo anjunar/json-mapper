@@ -28,21 +28,17 @@ class OrderingSpec extends AnyFunSuite with Matchers {
     value.entries.put("zeta", "1")
     value.entries.put("alpha", null)
     value.entries.put("mid", "2")
-    JsonMapper.serialize(value, TypeResolver.resolve(classOf[OrderedDto]), null, inject) shouldBe
+    new JsonMapper(inject = inject).serialize(value, TypeResolver.resolve(classOf[OrderedDto])) shouldBe
       """{"entries":{"zeta":"1","alpha":null,"mid":"2"},"@type":"OrderedDto"}"""
   }
 
   test("set elements keep the order in which the document lists them") {
     val value = new OrderedDto
-    JsonMapper.deserialize(
-      JsonParser.parse("""{"labels":["c","a","b"]}"""),
-      value,
-      TypeResolver.resolve(classOf[OrderedDto]),
-      null,
+    new JsonMapper(
+      Option(validator),
       (_, _) => null,
-      inject,
-      validator
-    )
+      inject
+    ).deserialize(JsonParser.parse("""{"labels":["c","a","b"]}"""), value, TypeResolver.resolve(classOf[OrderedDto]))
     value.labels.asScala.toSeq shouldBe Seq("c", "a", "b")
   }
 
@@ -50,7 +46,7 @@ class OrderingSpec extends AnyFunSuite with Matchers {
     val value = new OrderedDto
     value.names.add("a")
     value.names.add(null)
-    JsonMapper.serialize(value, TypeResolver.resolve(classOf[OrderedDto]), null, inject) shouldBe
+    new JsonMapper(inject = inject).serialize(value, TypeResolver.resolve(classOf[OrderedDto])) shouldBe
       """{"names":["a",null],"@type":"OrderedDto"}"""
   }
 }
