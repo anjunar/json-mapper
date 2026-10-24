@@ -4,7 +4,6 @@ import com.anjunar.json.mapper.schema.property.Property
 import com.anjunar.scala.universe.TypeResolver
 import reflect.macros.PropertySupport
 
-import java.lang.reflect.{ParameterizedType, Type}
 import scala.collection.mutable
 
 /**
@@ -54,36 +53,11 @@ abstract class BeanSchema[T] {
 private object BeanSchema {
 
   /** The type argument a schema class passes to [[BeanSchema]], also through intermediate base classes. */
-  def ownerType(schemaClass: Class[?]): Class[?] = {
-    @annotation.tailrec
-    def loop(current: Class[?]): Class[?] = {
-      if (current == null || current == classOf[Object]) {
-        throw new IllegalStateException(s"Unable to resolve entity type for schema ${schemaClass.getName}")
-      }
-
-      extractOwnerType(current.getGenericSuperclass) match {
-        case Some(value) => value
-        case None        => loop(current.getSuperclass)
-      }
-    }
-
-    loop(schemaClass)
-  }
-
-  private def extractOwnerType(candidate: Type): Option[Class[?]] = candidate match {
-    case parameterized: ParameterizedType =>
-      val rawType = TypeResolver.rawType(parameterized)
-
-      if (classOf[BeanSchema[?]].isAssignableFrom(rawType)) {
-        parameterized.getActualTypeArguments.headOption.map(TypeResolver.rawType)
-      } else {
-        extractOwnerType(rawType.getGenericSuperclass)
-      }
-
-    case clazz: Class[?] =>
-      Option(clazz.getGenericSuperclass).flatMap(extractOwnerType)
-
-    case _ => None
-  }
+  def ownerType(schemaClass: Class[?]): Class[?] =
+    TypeResolver.resolve(schemaClass).hierarchy
+      .find(_.raw == classOf[BeanSchema[?]])
+      .flatMap(_.typeArguments.headOption)
+      .map(_.raw)
+      .getOrElse(throw new IllegalStateException(s"Unable to resolve entity type for schema ${schemaClass.getName}"))
 
 }

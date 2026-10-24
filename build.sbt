@@ -4,7 +4,7 @@ ThisBuild / version := "1.2.0-SNAPSHOT"
 ThisBuild / organization := "com.anjunar"
 ThisBuild / organizationName := "Anjunar"
 ThisBuild / organizationHomepage := Some(url("https://github.com/anjunar"))
-ThisBuild / scalaVersion := "3.3.7"
+ThisBuild / scalaVersion := "3.3.8"
 ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
 // Java sources compile for the oldest JDK the dependencies support, whatever JDK builds the release.
 ThisBuild / javacOptions ++= Seq("--release", "17")
@@ -59,6 +59,7 @@ lazy val core = (project in file("core"))
     name := "json-mapper-core",
     moduleName := "json-mapper-core",
     libraryDependencies ++= Seq(
+      "com.anjunar" %% "scala-reflect" % "1.1.4",
       "com.anjunar" %% "scala-universe" % "1.0.4",
       "tools.jackson.core" % "jackson-databind" % "3.1.1",
       "tools.jackson.module" %% "jackson-module-scala" % "3.1.1"
@@ -72,6 +73,7 @@ lazy val jpa = (project in file("jpa"))
     name := "json-mapper",
     moduleName := "json-mapper",
     libraryDependencies ++= Seq(
+      "com.anjunar" %% "scala-reflect" % "1.1.4",
       "org.hibernate.orm" % "hibernate-core" % "7.2.6.Final"
     ) ++ testDependencies
   )

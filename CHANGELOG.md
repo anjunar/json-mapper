@@ -13,7 +13,8 @@
 - `JsonContext` and `JavaContext` are renamed to `DeserializationContext` and `SerializationContext`. The old names
   remain as deprecated type aliases; code compiled against the old classes must be recompiled.
 - `RequestContext`, `OwnerProvider`, `Helper` and `PropertyMacrosHelper` are deprecated and will be removed in 2.0.
-- Guava is no longer a declared dependency, and the JSON Schema export no longer uses Jackson.
+- Guava is no longer a declared dependency, and the JSON Schema export no longer uses Jackson. The build uses Scala
+  3.3.8 and declares scala-reflect, whose macros the schema layer calls directly.
 
 ### Invalid input
 
@@ -43,7 +44,9 @@
 - Rule instances and entity graph lookups are cached per call. The shared serializer held unsynchronized caches that
   concurrent requests could corrupt.
 - Two schemas whose properties reference each other no longer block forever during initialization.
-- `SchemaProvider` loads the nested `Schema` class with the provider's class loader and explains a missing one.
+- `SchemaProvider` creates the schema class named by its type argument, so a schema may be declared outside the
+  companion; a type argument that is no concrete schema class is explained. `BeanSchema` reads its entity type the
+  same way, through scala-universe, instead of walking generic superclasses itself.
 - Java sources compile with `--release 17`. In 1.1.6 the annotations had class file version 69 and could not be
   loaded below Java 25, while the Scala classes ran on Java 8.
 

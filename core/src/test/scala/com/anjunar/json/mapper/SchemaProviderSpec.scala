@@ -22,9 +22,15 @@ class SchemaProviderSpec extends AnyFunSuite with Matchers {
     }
   }
 
-  test("a provider without a nested Schema class says so") {
+  test("a provider whose type argument is no concrete schema says so") {
     val failure = the[IllegalStateException] thrownBy MissingSchema.schema
-    failure.getMessage should include("provides no nested class Schema")
+    failure.getMessage should include("names no concrete schema class")
+  }
+
+  test("the schema class may be declared outside the companion") {
+    External.schema shouldBe a[ExternalSchema]
+    External.schema.title.name shouldBe "title"
+    External.schema.ownerEntityType shouldBe classOf[External]
   }
 }
 
@@ -53,3 +59,14 @@ object CycleRight extends SchemaProvider[CycleRight.Schema] {
 class MissingSchema
 
 object MissingSchema extends SchemaProvider[BeanSchema[MissingSchema]]
+
+class External extends DTO {
+  @(JsonbProperty @field)
+  var title: String = null
+}
+
+object External extends SchemaProvider[ExternalSchema]
+
+class ExternalSchema extends BeanSchema[External] {
+  val title = property(_.title)
+}
