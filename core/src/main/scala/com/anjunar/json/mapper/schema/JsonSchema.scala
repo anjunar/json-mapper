@@ -3,7 +3,7 @@ package com.anjunar.json.mapper.schema
 import com.anjunar.json.mapper.intermediate.JsonGenerator
 import com.anjunar.json.mapper.intermediate.model.{JsonArray, JsonBoolean, JsonNode, JsonNumber, JsonObject, JsonString}
 import java.math.{BigDecimal as JavaBigDecimal}
-import java.lang.{Boolean as JavaBoolean, Integer as JavaInteger, Long as JavaLong}
+import java.lang.{Boolean as JavaBoolean, Integer as JavaInteger}
 import java.util
 
 /** JSON Schema protocol metadata. Entity values continue to use the entity/schema mapper. */

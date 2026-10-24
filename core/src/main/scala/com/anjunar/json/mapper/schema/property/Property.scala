@@ -1,7 +1,7 @@
 package com.anjunar.json.mapper.schema.property
 
 import com.anjunar.json.mapper.schema.{BeanSchema, Link, SchemaProvider, VisibilityRule}
-import _root_.reflect.{ClassDescriptor, PropertyAccessor, PropertyDescriptor}
+import _root_.reflect.{PropertyAccessor, PropertyDescriptor}
 import com.anjunar.scala.universe.TypeResolver
 import jakarta.json.bind.annotation.JsonbProperty
 

@@ -10,8 +10,8 @@ import scala.util.Random
 /** Random documents with a fixed seed: generating, parsing and generating again must give the same text. */
 class JsonRoundTripSpec extends AnyFunSuite with Matchers {
 
-  private val alphabet: IndexedSeq[Char] =
-    ('a' to 'z') ++ ('0' to '9') ++ Seq('"', '\\', '/', '\b', '\f', '\n', '\r', '\t', '\u0001', '\u001f', ' ', 'ä',
+  private val alphabet: IndexedSeq[Char] = ('a' to 'z') ++ ('0' to '9') ++
+    Seq('"', '\\', '/', '\b', '\f', '\n', '\r', '\t', '\u0001', '\u001f', ' ', 'ä',
       '€', '\ud83d', '\ude00')
 
   private def text(random: Random): String =

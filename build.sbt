@@ -6,6 +6,8 @@ ThisBuild / organizationName := "Anjunar"
 ThisBuild / organizationHomepage := Some(url("https://github.com/anjunar"))
 ThisBuild / scalaVersion := "3.3.7"
 ThisBuild / scalacOptions ++= Seq("-deprecation", "-feature")
+// Java sources compile for the oldest JDK the dependencies support, whatever JDK builds the release.
+ThisBuild / javacOptions ++= Seq("--release", "17")
 ThisBuild / homepage := Some(url("https://github.com/anjunar/json-mapper"))
 ThisBuild / description :=
   "JSON mapping for Scala object graphs with in-place deserialization and structured domain binding."

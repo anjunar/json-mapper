@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: sbt
+      - uses: sbt/setup-sbt@v1
+      - name: Put the sbt thin client on the path as sbtn
+        run: |
+          mkdir -p "$HOME/bin"
+          ln -s "$(dirname "$(readlink -f "$(command -v sbt)")")/sbtn-x86_64-pc-linux" "$HOME/bin/sbtn"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+      - name: Check formatting and imports
+        run: sbtn "scalafmtCheckAll; scalafix --check"
+      - name: Test
+        run: sbtn testFull
+      - name: Stop the sbt server
+        if: always()
+        run: sbtn shutdown

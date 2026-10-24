@@ -1,6 +1,6 @@
 # Architektur-Review json-mapper
 
-Stand: 2026-10-24, Basis `1.1.8-SNAPSHOT` (veröffentlicht ist 1.1.6).
+Stand: 2026-10-24, Basis `1.1.8-SNAPSHOT`, umgesetzt in `1.2.0-SNAPSHOT`. Veröffentlicht ist 1.1.6.
 
 Dieses Dokument hält die Befunde des Architektur-Reviews fest und zu jedem Punkt, wie er umgesetzt wurde.
 Geprüft wurden die Quellen dieses Repos, die Nachbarbibliothek `scala-universe` und als Konsument das öffentliche
@@ -20,7 +20,7 @@ expliziter Registrierung erzeugt, und die Standardregel ist nicht schreibbar.
 
 ## Befunde und Maßnahmen
 
-Status: *offen* wird beim Abarbeiten durch das Ergebnis ersetzt.
+Jeder Punkt endet mit dem Ergebnis der Umsetzung.
 
 ### 1. Nebenläufigkeit
 
@@ -31,7 +31,9 @@ Requests können die Maps korrumpieren. `scala-universe` hat dieselbe Lücke glo
 **Maßnahme.** Die Caches gehören zu einem Serialisierungsaufruf, denn Graphen sind pro Aufruf. Sie wandern in den
 Wurzelkontext. Für `scala-universe` wird ein eigener Fix vorgeschlagen.
 
-Status: offen
+Status: umgesetzt. `MappingRun` hält Regeln und Graph-Lookups pro Aufruf, `BeanSerializer` hat keinen Zustand mehr.
+Ein Test serialisiert parallel mit zwei Graphen. Die Lücke in `scala-universe` liegt außerhalb dieses Repos und bleibt
+offen, siehe unten.
 
 ### 2. Fehlermodell
 
@@ -44,7 +46,10 @@ die Sammlung ab.
 geworfen. `ErrorRequestException` erweitert künftig `IllegalArgumentException`, damit bestehende `catch`-Blöcke
 weiter greifen. `IllegalStateException` bleibt Programmierfehlern vorbehalten.
 
-Status: offen
+Status: umgesetzt. Jeder Deserializer meldet unpassende Werte über `DeserializationContext.reject`, die Bean sammelt
+den Fehler und prüft ihre übrigen Felder weiter. Das Registry wählt jetzt nach deklariertem Typ statt nach
+JSON-Knoten; das war die Ursache für "argument type mismatch" und `ClassCastException` bei falschen Knotentypen. Ein
+Loader, der ein falsches Objekt liefert, ist jetzt `IllegalStateException`.
 
 ### 3. Teilweise Schreibvorgänge
 
@@ -53,7 +58,8 @@ oder Arbeit auf einer Kopie.
 
 **Maßnahme.** Zwei Phasen: erst alles lesen, auflösen und validieren, dann nur bei null Fehlern schreiben.
 
-Status: offen
+Status: umgesetzt. `MappingRun` sammelt die Schreibvorgänge und führt sie in Reihenfolge aus, wenn kein Fehler
+aufgetreten ist. Das README nennt die Rollback-Pflicht nicht mehr als Grenze.
 
 ### 4. Doppelte Graph- und Namenslogik
 
@@ -62,7 +68,8 @@ Status: offen
 
 **Maßnahme.** Gemeinsame Objekte für Graph-Auswahl und Property-Metadaten, ein gemeinsamer Kontext-Trait.
 
-Status: offen
+Status: umgesetzt mit `BeanMetadata` und `MappingContext`. Auch `JsonSchemaDerivation` nutzt dieselbe
+Namensauflösung.
 
 ### 5. Benennung der Kontexte
 
@@ -72,7 +79,7 @@ Status: offen
 **Maßnahme.** Umbenennen in `DeserializationContext` und `SerializationContext`, die alten Namen bleiben als
 veraltete Aliase. `path()` korrekt implementieren.
 
-Status: offen
+Status: umgesetzt. Beide Kontexte haben `child(...)` statt der handgebauten Konstruktoraufrufe.
 
 ### 6. Verwaister Code
 
@@ -82,7 +89,8 @@ und `"links"` werden dagegen vom Konsumenten genutzt, sind also kein toter Code.
 **Maßnahme.** Die vier ungenutzten Typen als veraltet markieren und in 2.0 entfernen, weil 1.1.6 sie veröffentlicht
 hat. Die `"links"`-Sonderregel nur noch an einer Stelle führen.
 
-Status: offen
+Status: umgesetzt. Die vier Typen sind veraltet markiert. `Link` bleibt, die `"links"`-Regel steht nur noch in
+`BeanMetadata.bypassesGraph`.
 
 ### 7. Zeitwerte
 
@@ -94,7 +102,7 @@ Typen, ein `OffsetDateTime` wird abgelehnt, obwohl es gelesen werden kann.
 unterstützen und alle `java.time`-Typen im ISO-Format schreiben. Die Kürzung von `LocalDateTime` und `LocalTime`
 auf Minuten bleibt: ein Test hält sie als bewusstes Wire-Format fest.
 
-Status: offen
+Status: umgesetzt. Der bisherige Test, der `null` für ungültige Eingaben festhielt, prüft jetzt den Feldfehler.
 
 ### 8. Polymorphie
 
@@ -104,7 +112,8 @@ Konstruktor. Der Alias muss dem einfachen Klassennamen im selben Package entspre
 **Maßnahme.** Eine gemeinsame Subtyp-Auflösung für To-One und Collections. Zusätzlich die Standard-Registrierung
 über `@JsonbTypeInfo` am Basistyp, die bisherige Konvention bleibt gültig.
 
-Status: offen
+Status: umgesetzt in `Subtypes`. Beim Test fiel ein weiterer Fehler auf: ein leeres To-One-Feld mit einem
+Bean-Typ ohne `DTO` endete in einer `NullPointerException`. Es wird jetzt angelegt.
 
 ### 9. Regel-Injektion und Ordnung
 
@@ -113,7 +122,8 @@ Status: offen
 
 **Maßnahme.** Ein Regel-Cache pro Aufruf für beide Richtungen. `LinkedHashSet` und `LinkedHashMap` überall.
 
-Status: offen
+Status: umgesetzt. Dazu werden `null`-Elemente in Listen und Maps als `null` geschrieben statt im
+Bean-Serializer abzustürzen, und typisierte Maps konstruieren keine Skalare mehr.
 
 ### 10. Schema-Provider
 
@@ -124,7 +134,10 @@ können die Initialisierung rekursiv machen.
 **Maßnahme.** Classloader der Provider-Klasse, klare Fehlermeldung, Zyklus prüfen und gegebenenfalls verzögert
 auflösen.
 
-Status: offen
+Status: umgesetzt. Der Zyklus war real: zwei Schemas mit wechselseitigen To-One-Properties blockierten dauerhaft.
+`Property.schema` löst jetzt beim ersten Zugriff auf, über den Classloader des besitzenden Schemas. Die JSON-Form
+von `Property` bleibt gleich. Der Namensvergleich mit `UninitializedPropertyAccessException` bleibt bewusst: er
+erkennt Kotlins `lateinit` ohne eine Kotlin-Abhängigkeit.
 
 ### 11. Abhängigkeiten und Modulschnitt
 
@@ -135,7 +148,11 @@ JSON-Schema-Export und dem Standard-Converter, obwohl die Bibliothek einen eigen
 Hibernate abtrennen. Das Artefakt `json-mapper` behält seine Koordinaten und enthält `EntitySchema`, damit
 Konsumenten nichts ändern müssen.
 
-Status: offen
+Status: umgesetzt. Module `core` (`json-mapper-core`) und `jpa` (`json-mapper`), die neue Basisklasse
+`BeanSchema` trägt alles ohne JPA. Beide Module stagen in dasselbe Verzeichnis, die Publish-Skripte bleiben
+unverändert. Guava kommt nur noch transitiv über `scala-universe`. Jackson bleibt im Core für
+`JacksonJsonConverter`, weil `@UseConverter` ihn als Standardwert nennt; ihn zu entfernen wäre ein Bruch für 2.0.
+Die beiden Module teilen das Package `schema`, was für JPMS-Module nicht taugt; das README nennt das.
 
 ### 12. Öffentliche API
 
@@ -144,7 +161,10 @@ Status: offen
 **Maßnahme.** Eine einmal gebaute `MapperSettings` mit Validator, Loader und Injektor, Graph und Projektion als
 `Option`. Die alten Signaturen bleiben und werden als veraltet markiert.
 
-Status: offen
+Status: umgesetzt, aber anders als geplant. Eine statische Überladung mit `Option` hätte bestehende Aufrufe mit
+`null` mehrdeutig gemacht und Konsumenten-Code gebrochen. Stattdessen ist `JsonMapper` jetzt auch eine Klasse:
+`new JsonMapper(validator, loader, inject)` mit `serialize`, `deserialize` und `prepare`. Die statischen Aufrufe
+leiten weiter und sind veraltet, ein eigener Test hält ihre Kompatibilität fest.
 
 ### 13. Doku, Build und CI
 
@@ -154,7 +174,9 @@ README. Kein CI, das Scalafix-Plugin fehlt trotz Regel im Repo.
 **Maßnahme.** README angleichen, `CHANGELOG.md` anlegen, GitHub-Workflow mit Format-Check und Tests, Scalafix
 verdrahten.
 
-Status: offen
+Status: umgesetzt. `.github/workflows/ci.yml` prüft Format und Imports und führt `sbtn testFull` aus. Die
+Version steht jetzt auf `1.2.0-SNAPSHOT`, weil neue API und Deprecations nach dem deklarierten `early-semver` kein
+Patch-Release sind.
 
 ### 14. Testlücken
 
@@ -163,4 +185,38 @@ Map-Serialisierung, Zeitwert-Roundtrips und Nebenläufigkeit.
 
 **Maßnahme.** Gezielte Tests plus ein randomisierter Roundtrip-Test für Parser und Generator mit festem Seed.
 
-Status: offen
+Status: umgesetzt. Neu sind Tests für Eingabefehler, Subtypen, Schema-Provider, Ordnung, Zeitwerte,
+Graph-Serialisierung, Nebenläufigkeit, Parser-Roundtrips und die alte API. Die Zahl der Tests stieg von 89 auf
+117.
+
+### 15. Klassenversion der Java-Quellen
+
+**Befund.** Beim Gegentest mit dem Tutorial fiel auf: im veröffentlichten 1.1.6 haben die Scala-Klassen Version 52
+(Java 8), die drei Java-Annotationen aber 69 (Java 25). Auf Java 21 scheitert der Mapper beim Laden von
+`@JsonbAnyProperty`. javac übernimmt ohne Vorgabe das JDK, auf dem der Release gebaut wurde.
+
+**Maßnahme.** `javacOptions` mit `--release 17`, der Untergrenze, die Jackson 3 und Hibernate 7 ohnehin setzen.
+
+Status: umgesetzt. Die Annotationen haben jetzt Version 61.
+
+## Gegentest mit dem Konsumenten
+
+Das öffentliche `anjunar-blog-tutorial` wurde gegen den lokal veröffentlichten `1.2.0-SNAPSHOT` gebaut. Backend und
+Tests kompilieren ohne Änderung; es gibt nur die erwarteten Deprecation-Warnungen für die statischen Aufrufe. Von
+den Tests laufen die 57 ohne Datenbank grün, darunter `MapperReferenceSpec`. Die übrigen brauchen PostgreSQL und
+SMTP, die hier fehlen; alle zwölf Serverfehler gehen auf `Persistence.initialize` zurück. Ein Vergleichslauf gegen
+1.1.6 war auf diesem JDK 21 nicht möglich, eben wegen Befund 15.
+
+## Offen
+
+- **scala-universe.** Die globalen Caches `TypeResolver.cache`, `TypeResolver.companionCache`,
+  `BeanIntrospector.cache` und `AnnotationIntrospector.cache` sind einfache `HashMap`s, die beim ersten Zugriff auf
+  einen Typ von beliebigen Request-Threads beschrieben werden. Der Fix gehört in jenes Repo: `ConcurrentHashMap`,
+  und wo die Berechnung selbst wieder in denselben Cache greift, außerhalb rechnen und mit `putIfAbsent` eintragen,
+  denn `computeIfAbsent` darf nicht rekursiv aufgerufen werden. Dazu ein Test mit parallelem Erstzugriff.
+- **Version 2.0.** Entfernen der veralteten Typen und statischen Aufrufe, und `@UseConverter` ohne Jackson als
+  Standard, damit der Core ohne Jackson auskommt.
+- **Konsumenten mit Datenbank.** Das private `anjunar-stack` war in dieser Sitzung nicht lesbar, und die
+  Datenbank-Tests des Tutorials liefen mangels PostgreSQL nicht. Beides sollte vor dem Release einmal gegen den
+  Snapshot laufen, vor allem wegen der geänderten Fehlerarten und des Zwei-Phasen-Schreibens.
+

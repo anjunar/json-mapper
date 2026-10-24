@@ -4,8 +4,7 @@ import com.anjunar.json.mapper.{BeanMetadata, JsonPatch}
 import com.anjunar.json.mapper.annotations.UseConverter
 import com.anjunar.json.mapper.provider.{DTO, EntityProvider}
 import com.anjunar.scala.universe.{ResolvedClass, TypeResolver}
-import com.anjunar.scala.universe.introspector.{AnnotationIntrospector, AnnotationProperty}
-import jakarta.json.bind.annotation.JsonbProperty
+import com.anjunar.scala.universe.introspector.AnnotationProperty
 import jakarta.persistence.{Column, NamedEntityGraph, NamedEntityGraphs, Version}
 import jakarta.validation.constraints.{AssertFalse, AssertTrue, DecimalMax, DecimalMin, Max, Min, NotBlank, NotNull, Pattern, Size}
 import java.lang.{Boolean as JavaBoolean, Byte as JavaByte, Short as JavaShort, Integer as JavaInteger, Long as JavaLong}
