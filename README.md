@@ -5,7 +5,7 @@ touches what changed and keeps identity, references and relations intact.
 
 | Version | Platform | Scala | License |
 | --- | --- | --- | --- |
-| 1.1.6 | JVM | 3.3 | MIT |
+| 1.2.0 | JVM | 3.3 | MIT |
 
 Documentation: [English](https://docs.anjunar.com/en/json-mapper) · [Deutsch](https://docs.anjunar.com/de/json-mapper)
 Website: [English](https://anjunar.com/en/json-mapper) · [Deutsch](https://anjunar.com/de/json-mapper)
@@ -16,10 +16,10 @@ Website: [English](https://anjunar.com/en/json-mapper) · [Deutsch](https://anju
 [Scala Universe](https://github.com/anjunar/scala-universe) along, which resolves the types the mapper works with.
 
 ```scala
-libraryDependencies += "com.anjunar" %% "json-mapper" % "1.1.6"
+libraryDependencies += "com.anjunar" %% "json-mapper" % "1.2.0"
 ```
 
-From 1.2.0 on, applications without JPA entities can depend on `json-mapper-core` instead. It contains mapping,
+Applications without JPA entities can depend on `json-mapper-core` instead. It contains mapping,
 schemas with `BeanSchema`, projections and the JSON Schema export, and needs no persistence provider.
 
 ## First example

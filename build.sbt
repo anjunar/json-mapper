@@ -1,6 +1,6 @@
 import com.jsuereth.sbtpgp.PgpKeys._
 
-ThisBuild / version := "1.2.0-SNAPSHOT"
+ThisBuild / version := "1.2.0"
 ThisBuild / organization := "com.anjunar"
 ThisBuild / organizationName := "Anjunar"
 ThisBuild / organizationHomepage := Some(url("https://github.com/anjunar"))
@@ -59,8 +59,8 @@ lazy val core = (project in file("core"))
     name := "json-mapper-core",
     moduleName := "json-mapper-core",
     libraryDependencies ++= Seq(
-      "com.anjunar" %% "scala-reflect" % "1.1.5-SNAPSHOT",
-      "com.anjunar" %% "scala-universe" % "1.0.5-SNAPSHOT",
+      "com.anjunar" %% "scala-reflect" % "1.1.5",
+      "com.anjunar" %% "scala-universe" % "1.0.5",
       "tools.jackson.core" % "jackson-databind" % "3.1.1",
       "tools.jackson.module" %% "jackson-module-scala" % "3.1.1"
     ) ++ jakartaApis ++ testDependencies
@@ -73,7 +73,7 @@ lazy val jpa = (project in file("jpa"))
     name := "json-mapper",
     moduleName := "json-mapper",
     libraryDependencies ++= Seq(
-      "com.anjunar" %% "scala-reflect" % "1.1.5-SNAPSHOT",
+      "com.anjunar" %% "scala-reflect" % "1.1.5",
       "org.hibernate.orm" % "hibernate-core" % "7.2.6.Final"
     ) ++ testDependencies
   )
